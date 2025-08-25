@@ -1,0 +1,11 @@
+# Generated from pyproject.toml - Development dependencies
+# Avoids editable installs and hash conflicts
+
+uv>=0.5.0
+databricks-connect>=16.1.6
+debugpy>=1.8.15
+ruff>=0.12.2
+ty>=0.0.1a14
+watchdog>=6.0.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
