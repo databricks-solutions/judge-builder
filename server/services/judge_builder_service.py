@@ -25,6 +25,21 @@ from .labeling_service import labeling_service
 logger = logging.getLogger(__name__)
 
 
+def _is_not_found_error(error_message: str) -> bool:
+    """Check if an error message indicates a 'not found' condition."""
+    error_msg = str(error_message).lower()
+    not_found_indicators = [
+        'not found',
+        'does not exist', 
+        'not exist',
+        'no registered scorer',
+        'no such',
+        '404',
+        'not available'
+    ]
+    return any(indicator in error_msg for indicator in not_found_indicators)
+
+
 class JudgeBuilderService(BaseService):
     """Orchestrates judge creation, labeling sessions, and experiment metadata."""
 
@@ -52,23 +67,27 @@ class JudgeBuilderService(BaseService):
             judge_response = self.judge_service.create_judge(request)
             logger.info(f'Created judge: {judge_response.id}')
 
-            # 3. Store judge metadata in experiment tags
+            # 3. Register scorer (CRITICAL STEP - must happen before metadata storage)
+            judge = self.judge_service._judges.get(judge_response.id)
+            if not judge:
+                raise ValueError(f'Judge {judge_response.id} not found after creation')
+            
+            try:
+                judge.register_scorer()
+                logger.info(f'Successfully registered scorer for judge {judge_response.name}')
+            except Exception as e:
+                logger.error(f'CRITICAL: Failed to register scorer for judge {judge_response.name}: {e}')
+                # Clean up the judge from memory since scorer registration failed
+                self.judge_service.delete_judge(judge_response.id)
+                raise ValueError(f'Judge creation failed: scorer registration failed. {str(e)}')
+
+            # 4. Store judge metadata in experiment tags
             try:
                 self._store_judge_metadata_in_experiment(judge_response)
                 logger.info(f'Stored judge metadata in experiment for judge {judge_response.id}')
             except Exception as e:
                 logger.warning(f'Failed to store judge metadata: {e}')
                 # Continue with judge creation even if metadata storage fails
-
-            # 4. Register scorer
-            try:
-                judge = self.judge_service._judges.get(judge_response.id)
-                if judge:
-                    judge.register_scorer()
-                    logger.info(f'Successfully registered scorer for judge {judge_response.name}')
-            except Exception as e:
-                logger.warning(f'Failed to register scorer for judge {judge_response.name}: {e}')
-                # Continue with judge creation even if scorer registration fails
 
             # 5. Create initial labeling session if SME emails provided
             if hasattr(request, 'sme_emails') and request.sme_emails:
@@ -149,8 +168,13 @@ class JudgeBuilderService(BaseService):
             logger.error(f'Failed to list judge builders: {e}')
             return []
 
-    def delete_judge_builder(self, judge_id: str) -> bool:
-        """Delete a judge builder and all associated resources."""
+    def delete_judge_builder(self, judge_id: str) -> tuple[bool, list[str]]:
+        """Delete a judge builder and all associated resources.
+        
+        Returns:
+            tuple[bool, list[str]]: (success, warnings) where success indicates if deletion completed,
+            and warnings contains any non-critical issues encountered during deletion.
+        """
         try:
             logger.info(f'Deleting judge builder: {judge_id}')
 
@@ -158,7 +182,7 @@ class JudgeBuilderService(BaseService):
             judge_response = self.judge_service.get_judge(judge_id)
             if not judge_response:
                 logger.warning(f'Judge {judge_id} not found')
-                return False
+                return False, [f'Judge {judge_id} not found']
 
             deletion_warnings = []
 
@@ -169,7 +193,8 @@ class JudgeBuilderService(BaseService):
             except Exception as e:
                 warning_msg = f'Failed to remove judge from experiment metadata: {e}'
                 logger.warning(warning_msg)
-                deletion_warnings.append(warning_msg)
+                if not _is_not_found_error(str(e)):
+                    deletion_warnings.append(warning_msg)
 
             # 2. Delete MLflow run for labeling session and the labeling session itself
             try:
@@ -193,7 +218,8 @@ class JudgeBuilderService(BaseService):
             except Exception as e:
                 warning_msg = f'Failed to delete labeling session: {e}'
                 logger.warning(warning_msg)
-                deletion_warnings.append(warning_msg)
+                if not _is_not_found_error(str(e)):
+                    deletion_warnings.append(warning_msg)
 
             # 3. Delete MLflow scorer registration using helper function
             try:
@@ -207,7 +233,8 @@ class JudgeBuilderService(BaseService):
             except Exception as e:
                 warning_msg = f'Failed to delete MLflow scorer: {e}'
                 logger.warning(warning_msg)
-                deletion_warnings.append(warning_msg)
+                if "No registered scorer" not in str(e):
+                    deletion_warnings.append(warning_msg)
 
             # 4. Delete label schema
             try:
@@ -219,7 +246,8 @@ class JudgeBuilderService(BaseService):
             except Exception as e:
                 warning_msg = f'Failed to delete label schema: {e}'
                 logger.warning(warning_msg)
-                deletion_warnings.append(warning_msg)
+                if not _is_not_found_error(str(e)):
+                    deletion_warnings.append(warning_msg)
 
             # 5. Delete the judge from JudgeService
             try:
@@ -228,20 +256,22 @@ class JudgeBuilderService(BaseService):
             except Exception as e:
                 warning_msg = f'Failed to delete judge from service: {e}'
                 logger.warning(warning_msg)
-                deletion_warnings.append(warning_msg)
+                if not _is_not_found_error(str(e)):
+                    deletion_warnings.append(warning_msg)
 
-            # If there were deletion warnings, raise an exception with details
+            # Return success with any warnings
             if deletion_warnings:
-                raise Exception(
-                    f'Judge deleted but some artifacts remain: {"; ".join(deletion_warnings)}'
-                )
-
-            logger.info(f'Successfully deleted complete judge builder: {judge_id}')
-            return True
+                logger.warning(f'Judge {judge_id} deleted with warnings: {"; ".join(deletion_warnings)}')
+                return True, deletion_warnings
+            else:
+                logger.info(f'Successfully deleted complete judge builder: {judge_id}')
+                return True, []
 
         except Exception as e:
             logger.error(f'Failed to delete judge builder {judge_id}: {e}')
-            raise
+            # Even if there's a critical failure, still try to return partial success
+            # The judge may have been partially cleaned up
+            return False, [f'Critical deletion failure: {str(e)}']
 
     def _store_judge_metadata_in_experiment(self, judge_response: JudgeResponse):
         """Store judge metadata as experiment tags."""

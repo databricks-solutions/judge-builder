@@ -142,6 +142,17 @@ export function useAlignment() {
     } catch (err) {
       console.error('Error running alignment:', err)
       
+      // Check if this is a 422 optimization failure error
+      const isOptimizationFailure = err instanceof Error && (
+        err.message.includes('422') || 
+        err.message.includes('Judge optimization failed')
+      )
+      
+      if (isOptimizationFailure) {
+        setError('Judge optimization failed. Please check the app logs for details.')
+        throw err // Re-throw so the UI can handle it with toast
+      }
+      
       // Check if this is a 504 timeout error
       const isTimeout = err instanceof Error && (
         err.message.includes('504') || 

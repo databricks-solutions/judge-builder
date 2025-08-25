@@ -217,6 +217,11 @@ export default function JudgeDetailPage() {
       refetchExamples()
     } catch (error) {
       console.error('Failed to test judge on trace:', error)
+      toast({
+        title: "Judge Test Failed",
+        description: "Failed to test judge on this trace. Please check the app logs for details.",
+        variant: "destructive"
+      })
     } finally {
       setTestingTraces(prev => {
         const newSet = new Set(prev)
@@ -421,7 +426,7 @@ export default function JudgeDetailPage() {
                   Error loading examples: {examplesError}
                 </div>
               )}
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 {examplesLoading && examples.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
@@ -816,7 +821,18 @@ export default function JudgeDetailPage() {
                     })
                   } catch (error) {
                     console.error('[Alignment Debug] Failed to run alignment:', error)
-                    if (needsRefresh) {
+                    
+                    // Check if this is an optimization failure
+                    const errorMessage = error instanceof Error ? error.message : String(error)
+                    const isOptimizationFailure = errorMessage.includes('Judge optimization failed') || errorMessage.includes('422')
+                    
+                    if (isOptimizationFailure) {
+                      toast({
+                        title: "Judge Optimization Failed",
+                        description: "Judge optimization failed. Please check the app logs for details.",
+                        variant: "destructive"
+                      })
+                    } else if (needsRefresh) {
                       toast({
                         title: "Alignment may have completed",
                         description: "Polling timed out but alignment may be done. Click refresh to check status.",
@@ -836,7 +852,7 @@ export default function JudgeDetailPage() {
                     } else {
                       toast({
                         title: "Alignment failed",
-                        description: "Please check the app's logs to understand why",
+                        description: "Please check the app logs for details.",
                         variant: "destructive"
                       })
                     }
@@ -949,7 +965,18 @@ export default function JudgeDetailPage() {
                           })
                         } catch (error) {
                           console.error('[Alignment Debug] Failed to run alignment (v1 tab):', error)
-                          if (needsRefresh) {
+                          
+                          // Check if this is an optimization failure
+                          const errorMessage = error instanceof Error ? error.message : String(error)
+                          const isOptimizationFailure = errorMessage.includes('Judge optimization failed') || errorMessage.includes('422')
+                          
+                          if (isOptimizationFailure) {
+                            toast({
+                              title: "Judge Optimization Failed",
+                              description: "Judge optimization failed. Please check the app logs for details.",
+                              variant: "destructive"
+                            })
+                          } else if (needsRefresh) {
                             toast({
                               title: "Alignment may have completed",
                               description: "Polling timed out but alignment may be done. Click refresh to check status.",
@@ -969,7 +996,7 @@ export default function JudgeDetailPage() {
                           } else {
                             toast({
                               title: "Alignment failed",
-                              description: "Please check the app's logs to understand why",
+                              description: "Please check the app logs for details.",
                               variant: "destructive"
                             })
                           }

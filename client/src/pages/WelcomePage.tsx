@@ -117,26 +117,54 @@ export default function WelcomePage() {
       return
     }
 
+    let deleteSuccessful = false
+    
     try {
       setDeletingJudgeIds(prev => new Set(prev).add(judgeId))
       
-      await JudgeBuildersService.deleteJudgeBuilderApiJudgeBuildersJudgeIdDelete(judgeId)
+      const response = await JudgeBuildersService.deleteJudgeBuilderApiJudgeBuildersJudgeIdDelete(judgeId)
       
-      
-      // Remove the judge from the local state immediately for better UX
-      setJudges(prev => prev.filter(judge => judge.id !== judgeId))
-      
-      // Also refetch to ensure we're in sync with the server
-      await refetchJudges()
+      // Handle different deletion response types
+      if (response.error) {
+        // Deletion failed - show error
+        toast({
+          title: "Failed to delete judge",
+          description: response.error || "Could not delete the judge. Please check the app logs for details.",
+          variant: "destructive"
+        })
+      } else if (response.warning) {
+        // Deletion succeeded with warnings - show warning toast
+        deleteSuccessful = true
+        toast({
+          title: "Judge deleted with warnings",
+          description: "Some resources could not be cleaned up. " + response.warning,
+          variant: "default"  // Warning style
+        })
+        // Remove the judge from local state since deletion succeeded
+        setJudges(prev => prev.filter(judge => judge.id !== judgeId))
+      } else {
+        // Full success
+        deleteSuccessful = true
+        toast({
+          title: "Judge deleted",
+          description: "Judge deleted successfully",
+          variant: "default"
+        })
+        // Remove the judge from the local state immediately for better UX
+        setJudges(prev => prev.filter(judge => judge.id !== judgeId))
+      }
       
     } catch (error) {
       console.error(`Failed to delete judge ${judgeName}:`, error)
       toast({
         title: "Failed to delete judge",
-        description: `Could not delete "${judgeName}". Please try again.`,
+        description: "Could not delete the judge. Please check the app logs for details.",
         variant: "destructive"
       })
     } finally {
+      // Always refresh the judge list, even if deletion failed
+      await refetchJudges()
+      
       setDeletingJudgeIds(prev => {
         const newSet = new Set(prev)
         newSet.delete(judgeId)
@@ -214,9 +242,14 @@ export default function WelcomePage() {
       
     } catch (error) {
       console.error("Failed to create judge:", error)
+      
+      // Check if this is a scorer registration failure
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const isScorerError = errorMessage.includes('scorer registration failed')
+      
       toast({
-        title: "Failed to create judge",
-        description: "Could not create the judge. Please check your inputs and try again.",
+        title: isScorerError ? "Scorer Registration Failed" : "Failed to create judge",
+        description: "Judge creation failed. Please check the app logs for details.",
         variant: "destructive"
       })
     } finally {

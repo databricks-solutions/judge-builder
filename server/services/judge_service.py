@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from typing import Dict, List, Optional
 
 import mlflow
@@ -12,6 +13,7 @@ from server.models import (
     JudgeResponse,
 )
 from server.optimizers.custom_prompt_optimizer import CustomPromptOptimizer
+from server.utils.constants import DEFAULT_JUDGE_OPTIMIZER
 
 from .base_service import BaseService
 
@@ -57,7 +59,8 @@ class JudgeService(BaseService):
         logger.info(f'Creating judge: {request.name}')
 
         if optimizer is None:
-            optimizer = CustomPromptOptimizer(optimizer_algorithm='miprov2')
+            optimizer_algorithm = os.getenv('JUDGE_OPTIMIZER', DEFAULT_JUDGE_OPTIMIZER)
+            optimizer = CustomPromptOptimizer(optimizer_algorithm=optimizer_algorithm)
 
         # Create the judge instance
         judge = CustomPromptJudge(
@@ -186,7 +189,8 @@ class JudgeService(BaseService):
                 metadata = judges_metadata[judge_id]
 
                 # Recreate judge from metadata
-                optimizer = CustomPromptOptimizer(optimizer_algorithm='miprov2')
+                optimizer_algorithm = os.getenv('JUDGE_OPTIMIZER', DEFAULT_JUDGE_OPTIMIZER)
+                optimizer = CustomPromptOptimizer(optimizer_algorithm=optimizer_algorithm)
                 judge = CustomPromptJudge(
                     name=metadata['name'],
                     user_instructions=metadata['instruction'],  # Keep original for display

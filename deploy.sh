@@ -78,7 +78,9 @@ cat > app.yaml << EOF
 command:
   - "uvicorn"
   - "server.app:app"
-env: []
+env:
+  - name: "JUDGE_OPTIMIZER"
+    value: "${JUDGE_OPTIMIZER:-miprov2}"
 EOF
 
 # Create workspace directory and sync source

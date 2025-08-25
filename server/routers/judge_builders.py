@@ -52,10 +52,31 @@ async def get_judge_builder(judge_id: str):
 async def delete_judge_builder(judge_id: str):
     """Delete a judge builder."""
     try:
-        success = judge_builder_service.delete_judge_builder(judge_id)
-        if not success:
-            raise HTTPException(status_code=404, detail='Judge builder not found')
-        return {'message': 'Judge builder deleted successfully'}
+        deletion_success, warnings = judge_builder_service.delete_judge_builder(judge_id)
+        
+        # Always return success so frontend refreshes the judge list
+        # Surface warnings as different message types
+        if deletion_success and not warnings:
+            return {'message': 'Judge builder deleted successfully', 'refresh_needed': False}
+        elif deletion_success and warnings:
+            return {
+                'message': 'Judge builder deleted with some cleanup issues',
+                'refresh_needed': False,
+                'warning': f'Some resources could not be cleaned up: {"; ".join(warnings)}',
+                'warnings': warnings
+            }
+        else:
+            return {
+                'message': 'Judge builder deletion failed',
+                'refresh_needed': True,
+                'error': '; '.join(warnings) if warnings else 'Unknown error',
+                'warnings': warnings
+            }
+            
     except Exception as e:
-        logger.error(f'Failed to delete judge builder {judge_id}: {e}\n{traceback.format_exc()}')
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f'Unexpected error deleting judge builder {judge_id}: {e}\n{traceback.format_exc()}')
+        return {
+            'message': 'Judge builder deletion failed',
+            'refresh_needed': True,
+            'error': str(e)
+        }

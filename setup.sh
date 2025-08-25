@@ -100,6 +100,8 @@ if [ "$UPDATE_CONFIG" = true ]; then
     fi
     
     if [ "$profile" != "$DATABRICKS_CONFIG_PROFILE" ]; then
+        # Remove existing line and add new one
+        sed -i '' '/^DATABRICKS_CONFIG_PROFILE=/d' .env.local
         echo "DATABRICKS_CONFIG_PROFILE=$profile" >> .env.local
         export DATABRICKS_CONFIG_PROFILE="$profile"
     fi
@@ -119,6 +121,8 @@ if [ "$UPDATE_CONFIG" = true ]; then
     fi
     
     if [ "$app_name" != "$DATABRICKS_APP_NAME" ]; then
+        # Remove existing line and add new one
+        sed -i '' '/^DATABRICKS_APP_NAME=/d' .env.local
         echo "DATABRICKS_APP_NAME=$app_name" >> .env.local
         export DATABRICKS_APP_NAME="$app_name"
     fi

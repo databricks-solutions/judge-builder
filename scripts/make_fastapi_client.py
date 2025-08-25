@@ -36,6 +36,20 @@ def main(api_json_from_server):
   """
     )
 
+    # Fix the OpenAPI base URL to use relative URLs for proper proxy handling
+    openapi_config_path = f'{output}/core/OpenAPI.ts'
+    if os.path.exists(openapi_config_path):
+        with open(openapi_config_path, 'r') as f:
+            content = f.read()
+        
+        # Replace the BASE URL with empty string for relative URLs
+        content = content.replace("BASE: 'http://localhost:8001'", "BASE: ''")
+        content = content.replace("BASE: 'http://localhost:8000'", "BASE: ''")
+        content = content.replace("BASE: 'http://localhost:9000'", "BASE: ''")
+        
+        with open(openapi_config_path, 'w') as f:
+            f.write(content)
+
     print(f'[make_fastapi_client] Web client written to {output}')
 
 

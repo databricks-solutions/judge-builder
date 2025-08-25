@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 import dspy
 import mlflow
 
-from server.prompts import DEFAULT_JUDGE_PROMPT_TEMPLATE
+from server.prompts import OPTIMIZED_JUDGE_PROMPT_TEMPLATE
 from server.utils import dspy_utils
 from server.utils.naming_utils import sanitize_judge_name
 from server.utils.parsing_utils import extract_request_from_trace, extract_response_from_trace
@@ -143,7 +143,7 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
                 auto='light',  # Use auto mode to avoid parameter conflicts
             )
         elif self.optimizer_algorithm == 'simba':
-            return dspy.SIMBA(metric=agreement_metric)
+            return dspy.SIMBA(metric=agreement_metric, bsize=8)
         else:
             raise ValueError(f'Unsupported optimizer algorithm: {self.optimizer_algorithm}')
 
@@ -230,7 +230,6 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
 
                     agreement = 1.0 if expected_norm == predicted_norm else 0.0
 
-
                     return agreement
                 except Exception as e:
                     logger.error(f'Metric evaluation failed: {e}')
@@ -242,19 +241,30 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
 
             logger.info(f'Starting {optimizer_name} compilation...')
 
-            # Compile the optimized program
-            optimized_program = optimizer.compile(
-                student=program,
-                trainset=dspy_train_data,
-                valset=dspy_eval_data,
-                requires_permission_to_run=False,
-            )
+            # Compile the optimized program with algorithm-specific parameters
+            if self.optimizer_algorithm == 'miprov2':
+                optimized_program = optimizer.compile(
+                    student=program,
+                    trainset=dspy_train_data,
+                    valset=dspy_eval_data,
+                    requires_permission_to_run=False,
+                )
+            elif self.optimizer_algorithm == 'simba':
+                # SIMBA only accepts student and trainset parameters
+                optimized_program = optimizer.compile(
+                    student=program,
+                    trainset=dspy_train_data,
+                    seed=42,  # Fixed seed for reproducibility
+                )
+            else:
+                raise ValueError(f'Unsupported optimizer algorithm: {self.optimizer_algorithm}')
 
             logger.info(f'{optimizer_name} compilation completed')
 
             # Extract the optimized instructions and format using shared template
             optimized_instructions = optimized_program.signature.instructions
-            optimized_prompt = DEFAULT_JUDGE_PROMPT_TEMPLATE.format(
+
+            optimized_prompt = OPTIMIZED_JUDGE_PROMPT_TEMPLATE.format(
                 system_instructions=optimized_instructions
             )
 

@@ -3,8 +3,8 @@
 set -e
 
 # Configuration
-LOG_FILE="/tmp/uvx databricks-app-watch.log"
-PID_FILE="/tmp/uvx databricks-app-watch.pid"
+LOG_FILE="/tmp/databricks-app-watch.log"
+PID_FILE="/tmp/databricks-app-watch.pid"
 
 # Parse command line arguments
 PROD_MODE=false
@@ -90,11 +90,11 @@ if [ "$PROD_MODE" = true ]; then
   echo "✅ Frontend built successfully"
   
   # In production mode, only start backend (frontend served by FastAPI)
-  uv run uvicorn server.app:app --reload --reload-dir server --host 0.0.0.0 --port 9000 &
+  uv run uvicorn server.app:app --reload --reload-dir server --host 0.0.0.0 --port 8000 &
   BACKEND_PID=$!
   echo "Backend PID: $BACKEND_PID"
   
-  echo "Production mode: Frontend will be served by FastAPI at http://localhost:3000"
+  echo "Production mode: Frontend will be served by FastAPI at http://localhost:8000"
 else
   # Development mode: start both frontend and backend
   echo "🌐 Starting frontend development server..."
@@ -103,7 +103,7 @@ else
   echo "Frontend PID: $FRONTEND_PID"
 
   echo "🖥️ Starting backend development server..."
-  uv run uvicorn server.app:app --reload --reload-dir server --host 0.0.0.0 --port 9000 &
+  uv run uvicorn server.app:app --reload --reload-dir server --host 0.0.0.0 --port 8000 &
   BACKEND_PID=$!
   echo "Backend PID: $BACKEND_PID"
 fi
@@ -132,7 +132,7 @@ if [ "$PROD_MODE" = true ]; then
   echo "  Backend PID: $BACKEND_PID"
   echo "  Watcher PID: $WATCHER_PID"
   echo ""
-  echo "App: http://localhost:3000"
+  echo "App: http://localhost:8000"
 else
   echo "  Frontend PID: $FRONTEND_PID"
   echo "  Backend PID: $BACKEND_PID"
@@ -141,9 +141,9 @@ else
   # Detect the actual frontend port (default 5173, or next available)
   FRONTEND_PORT=$(netstat -an | grep LISTEN | grep ':517[3-9]' | head -1 | sed 's/.*:\([0-9]*\).*/\1/' || echo "5173")
   echo "Frontend: http://localhost:$FRONTEND_PORT"
-  echo "Backend:  http://localhost:3000"
+  echo "Backend:  http://localhost:8000"
 fi
-echo "API Docs: http://localhost:3000/docs"
+echo "API Docs: http://localhost:8000/docs"
 echo ""
 echo "📄 Logs: tail -f $LOG_FILE"
 echo "🛑 Stop: kill \$(cat $PID_FILE) or pkill -f watch.sh"
@@ -186,8 +186,8 @@ cleanup() {
   # As a final cleanup, kill any processes still using our ports
   # (These should only be processes we started since we're in our own watch script)
   echo "Final cleanup: killing any remaining processes on our ports..."
-  lsof -ti:5173 2>/dev/null | xargs -r kill 2>/dev/null || true
   lsof -ti:3000 2>/dev/null | xargs -r kill 2>/dev/null || true
+  lsof -ti:8000 2>/dev/null | xargs -r kill 2>/dev/null || true
   
   # Clean up PID file
   rm -f "$PID_FILE"

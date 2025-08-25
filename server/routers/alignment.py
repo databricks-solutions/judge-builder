@@ -25,6 +25,10 @@ async def run_alignment(judge_id: str):
         return alignment_service.run_alignment(judge_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        # Handle optimization failures specifically
+        logger.error(f'Alignment optimization failed for judge {judge_id}: {e}\n{traceback.format_exc()}')
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.error(f'Request failed: {e}\n{traceback.format_exc()}')
         raise HTTPException(status_code=500, detail=str(e))

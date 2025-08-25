@@ -9,3 +9,11 @@ Evaluation criteria: {system_instructions}
 You must choose one of the following categories.
 [[pass]]: The response satisfies the evaluation criteria
 [[fail]]: The response does not satisfy the evaluation criteria"""
+
+OPTIMIZED_JUDGE_PROMPT_TEMPLATE = """{system_instructions}
+<request>{{{{request}}}}</request>
+<response>{{{{response}}}}</response>
+
+You must choose one of the following categories.
+[[pass]]: The response satisfies the evaluation criteria
+[[fail]]: The response does not satisfy the evaluation criteria"""

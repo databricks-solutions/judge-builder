@@ -297,6 +297,11 @@ class AlignmentService(BaseService):
         judge_instance = judge_service._judges[judge_id]
         optimization_success = judge_instance.optimize(traces)
         
+        # Check if optimization failed and fail early
+        if not optimization_success:
+            logger.error(f'Optimization failed for judge {judge_id}')
+            raise RuntimeError(f'Judge optimization failed. Please check the app logs for details.')
+        
         # Step 3: Create new judge version (v_i+1) with optimized prompt
         optimized_instructions = judge_instance.prompt_template.replace(
             'Evaluation criteria: ', ''
