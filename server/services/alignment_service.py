@@ -6,6 +6,7 @@ from typing import Dict, Optional
 import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.genai import evaluate, scorers
+import dspy
 
 from server.models import (
     AlignmentComparison,
@@ -25,6 +26,7 @@ from server.utils.parsing_utils import (
     get_human_feedback_from_trace,
     get_scorer_feedback_from_trace,
 )
+from server.utils import dspy_utils
 
 from .base_service import BaseService
 from .cache_service import cache_service
@@ -34,6 +36,13 @@ logger = logging.getLogger(__name__)
 
 class AlignmentService(BaseService):
     """Handles judge evaluation and alignment using DSPy."""
+
+    def __init__(self):
+        super().__init__()
+        # Set up DSPy language model
+        lm = dspy_utils.AgentEvalLM()
+        # Configure DSPy to use this language model
+        dspy.configure(lm=lm)
 
     def _get_judge_scorer(self, judge: JudgeResponse) -> Optional[scorers.Scorer]:
         """Get the scorer for a judge."""
@@ -280,6 +289,14 @@ class AlignmentService(BaseService):
 
         if not traces:
             raise ValueError('No traces found in labeling session')
+
+        # Check labeling progress to ensure we have enough examples for alignment
+        from server.judges.custom_prompt_judge import MIN_EXAMPLES_FOR_OPTIMIZATION
+        
+        labeling_progress = labeling_service.get_labeling_progress(judge_id)
+        
+        if labeling_progress.labeled_examples < MIN_EXAMPLES_FOR_OPTIMIZATION:
+            raise ValueError(f'Insufficient labeled examples for alignment. Found {labeling_progress.labeled_examples} labeled examples, but need at least {MIN_EXAMPLES_FOR_OPTIMIZATION}. Please complete more labeling tasks before running alignment.')
 
         # Extract trace IDs for evaluation
         trace_ids = [trace.info.trace_id for trace in traces]

@@ -142,6 +142,21 @@ export function useAlignment() {
     } catch (err) {
       console.error('Error running alignment:', err)
       
+      // Check if this is an insufficient examples error
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      const errorString = JSON.stringify(err)
+      const isInsufficientExamples = (
+        errorMessage.includes('Insufficient labeled examples') ||
+        errorMessage.includes('need at least') ||
+        errorString.includes('Insufficient labeled examples') ||
+        errorString.includes('need at least')
+      )
+      
+      if (isInsufficientExamples) {
+        setError('insufficient_examples')
+        throw err // Re-throw so the UI can handle it with toast
+      }
+      
       // Check if this is a 422 optimization failure error
       const isOptimizationFailure = err instanceof Error && (
         err.message.includes('422') || 

@@ -32,9 +32,9 @@ class ExperimentService(BaseService):
         """Get experiment by ID."""
         return self.client.get_experiment(experiment_id)
 
-    def get_experiment_traces(self, experiment_id: str, run_id: Optional[str] = None):
+    def get_experiment_traces(self, experiment_id: str, run_id: Optional[str] = None, max_results: int = 1000):
         """Get traces from MLflow experiment."""
-        search_params = {'experiment_ids': [experiment_id]}
+        search_params = {'experiment_ids': [experiment_id], 'max_results': max_results}
         if run_id:
             search_params['run_id'] = run_id
 

@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, Check, X, AlertTriangle } from "lucide-react"
+import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight } from "lucide-react"
 import { LoadingDots } from "@/components/ui/loading-dots"
 import { useToast } from "@/contexts/ToastContext"
 
@@ -167,7 +167,31 @@ export default function JudgeDetailPage() {
       setAddExamplesModalOpen(false)
     } catch (error) {
       console.error('Failed to add examples:', error)
-      // You could add a toast notification here
+      
+      // Close modal immediately on error
+      setAddExamplesModalOpen(false)
+      
+      // Check if this is a "no labeling session" error
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorString = JSON.stringify(error)
+      
+      if (errorMessage.includes('No labeling session found for this judge') || 
+          errorString.includes('No labeling session found for this judge') ||
+          errorString.includes('"detail":"No labeling session found for this judge"')) {
+        toast({
+          title: "No Labeling Session Found",
+          description: "Please create a labeling session first before adding examples.",
+          variant: "destructive",
+          duration: 6000 // Show for 6 seconds
+        })
+      } else {
+        toast({
+          title: "Failed to add examples",
+          description: "Could not add examples. Please try again.",
+          variant: "destructive",
+          duration: 5000 // Show for 5 seconds
+        })
+      }
     } finally {
       setAddingExamples(false)
     }
@@ -452,8 +476,19 @@ export default function JudgeDetailPage() {
                     <div key={example.trace_id} className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/30 transition-colors" onClick={toggleExpanded}>
                       {/* Collapsed View - Always visible */}
                       <div className="flex items-center gap-3">
-                        <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono">
-                          {example.trace_id}
+                        <div 
+                          className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono cursor-pointer hover:bg-blue-200 flex items-center gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (databricksHost && judge?.experiment_id) {
+                              const traceUrl = `${databricksHost}/ml/experiments/${judge.experiment_id}/traces?selectedEvaluationId=${example.trace_id}`
+                              window.open(traceUrl, '_blank')
+                            }
+                          }}
+                          title={`Open trace ${example.trace_id} in new tab`}
+                        >
+                          <span>{example.trace_id.length > 12 ? `${example.trace_id.substring(0, 12)}...` : example.trace_id}</span>
+                          <ExternalLink className="w-3 h-3" />
                         </div>
                         <span className="text-sm flex-1">{example.request}</span>
                         <div className="flex items-center gap-2">
@@ -481,8 +516,8 @@ export default function JudgeDetailPage() {
                                 // Check for error first
                                 if (error) {
                                   return (
-                                    <div className="w-5 h-5 rounded-full bg-yellow-100 flex items-center justify-center">
-                                      <AlertTriangle className="w-3 h-3 text-yellow-600" />
+                                    <div className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
+                                      Error
                                     </div>
                                   )
                                 }
@@ -494,14 +529,14 @@ export default function JudgeDetailPage() {
                                 // Display pass/fail icon
                                 if (feedbackValue.toLowerCase() === 'pass') {
                                   return (
-                                    <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
-                                      <Check className="w-3 h-3 text-green-600" />
+                                    <div className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                                      Pass
                                     </div>
                                   )
                                 } else if (feedbackValue.toLowerCase() === 'fail') {
                                   return (
-                                    <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
-                                      <X className="w-3 h-3 text-red-600" />
+                                    <div className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+                                      Fail
                                     </div>
                                   )
                                 }
@@ -510,18 +545,25 @@ export default function JudgeDetailPage() {
                             </div>
                           )}
                           
-                          <div className="bg-blue-50 border border-blue-200 rounded-md p-0.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="bg-blue-50 border border-blue-200 rounded-md px-2 py-1" onClick={(e) => e.stopPropagation()}>
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-6 w-6 p-0"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-auto px-2 py-1 text-xs"
                               onClick={() => testJudgeOnTrace(example.trace_id)}
                               disabled={testingTraces.has(example.trace_id)}
+                              title="Test judge on this example"
                             >
                               {testingTraces.has(example.trace_id) ? (
-                                <LoadingDots size="sm" />
+                                <div className="flex items-center gap-1">
+                                  <span>Testing...</span>
+                                  <LoadingDots size="sm" />
+                                </div>
                               ) : (
-                                <Play className="w-3 h-3" />
+                                <div className="flex items-center gap-1">
+                                  <span>Run judge</span>
+                                  <Play className="w-3 h-3" />
+                                </div>
                               )}
                             </Button>
                           </div>
@@ -568,10 +610,11 @@ export default function JudgeDetailPage() {
                                   if (error) {
                                     return (
                                       <div className="text-sm">
-                                        <div className="flex items-center gap-2 text-yellow-600">
-                                          <AlertTriangle className="w-4 h-4" />
-                                          <span className="font-medium">Error:</span>
-                                          <span className="text-sm">Judge evaluation failed</span>
+                                        <div className="flex items-center gap-2">
+                                          <div className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
+                                            Error
+                                          </div>
+                                          <span className="text-sm text-yellow-600">Judge evaluation failed</span>
                                         </div>
                                       </div>
                                     )
@@ -586,11 +629,13 @@ export default function JudgeDetailPage() {
                                   return (
                                     <div className="text-sm space-y-2">
                                       <div className="flex items-center gap-2">
-                                        {isPass && <Check className="w-4 h-4 text-green-600" />}
-                                        {isFail && <X className="w-4 h-4 text-red-600" />}
-                                        <span className={`font-medium ${isPass ? 'text-green-600' : isFail ? 'text-red-600' : ''}`}>
+                                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                          isPass ? 'bg-green-100 text-green-700' : 
+                                          isFail ? 'bg-red-100 text-red-700' : 
+                                          'bg-gray-100 text-gray-700'
+                                        }`}>
                                           {feedbackValue}
-                                        </span>
+                                        </div>
                                       </div>
                                       {rationale && (
                                         <div>
@@ -710,11 +755,11 @@ export default function JudgeDetailPage() {
                           <span>Labeling Progress</span>
                           <span>
                             {progress && progress.total_examples > 0 
-                              ? `${Math.round((progress.labeled_examples / progress.total_examples) * 100)}% labeled` 
-                              : '0% labeled'}, 
+                              ? `${progress.labeled_examples} out of ${progress.total_examples} (${Math.round((progress.labeled_examples / progress.total_examples) * 100)}%) labeled` 
+                              : '0 out of 0 (0%) labeled'}, 
                             {progress && progress.total_examples > 0 
-                              ? ` ${Math.round((readyForAlignment / progress.total_examples) * 100)}% to be aligned` 
-                              : ' 0% to be aligned'}
+                              ? ` ${readyForAlignment} (${Math.round((readyForAlignment / progress.total_examples) * 100)}%) to be aligned` 
+                              : ' 0 (0%) to be aligned'}
                           </span>
                         </div>
                         <div className="w-full bg-gray-300 rounded-full h-3 relative">
@@ -787,6 +832,11 @@ export default function JudgeDetailPage() {
                   </div>
                 </div>
               )}
+              
+              {/* Note about removing feedback - moved outside blue box */}
+              <div className="text-xs text-gray-600 mt-3 p-2 bg-gray-50 rounded">
+                <strong>Note:</strong> To remove feedback, please view the trace in the trace UI and delete the feedback assessment provided by your labeler.
+              </div>
             </CardContent>
           </Card>
           
@@ -822,15 +872,37 @@ export default function JudgeDetailPage() {
                   } catch (error) {
                     console.error('[Alignment Debug] Failed to run alignment:', error)
                     
-                    // Check if this is an optimization failure
+                    // Check if this is an insufficient examples error
                     const errorMessage = error instanceof Error ? error.message : String(error)
+                    const errorString = JSON.stringify(error)
+                    const isInsufficientExamples = (
+                      errorMessage.includes('Insufficient labeled examples') ||
+                      errorMessage.includes('need at least') ||
+                      errorString.includes('Insufficient labeled examples') ||
+                      errorString.includes('need at least')
+                    )
+                    
+                    if (isInsufficientExamples) {
+                      toast({
+                        title: "Not Enough Labeled Examples",
+                        description: "Need at least 10 labeled examples for alignment.",
+                        variant: "destructive",
+                        duration: 8000
+                      })
+                      return
+                    }
+                    
+                    // Check if this is an optimization failure
                     const isOptimizationFailure = errorMessage.includes('Judge optimization failed') || errorMessage.includes('422')
                     
                     if (isOptimizationFailure) {
                       toast({
                         title: "Judge Optimization Failed",
-                        description: "Judge optimization failed. Please check the app logs for details.",
-                        variant: "destructive"
+                        description: errorMessage.includes('Judge optimization failed') 
+                          ? errorMessage.replace('Judge optimization failed: ', '') 
+                          : errorMessage,
+                        variant: "destructive",
+                        duration: 15000 // Show for 15 seconds
                       })
                     } else if (needsRefresh) {
                       toast({
@@ -966,15 +1038,37 @@ export default function JudgeDetailPage() {
                         } catch (error) {
                           console.error('[Alignment Debug] Failed to run alignment (v1 tab):', error)
                           
-                          // Check if this is an optimization failure
+                          // Check if this is an insufficient examples error
                           const errorMessage = error instanceof Error ? error.message : String(error)
+                          const errorString = JSON.stringify(error)
+                          const isInsufficientExamples = (
+                            errorMessage.includes('Insufficient labeled examples') ||
+                            errorMessage.includes('need at least') ||
+                            errorString.includes('Insufficient labeled examples') ||
+                            errorString.includes('need at least')
+                          )
+                          
+                          if (isInsufficientExamples) {
+                            toast({
+                              title: "Not Enough Labeled Examples",
+                              description: "Need at least 10 labeled examples for alignment.",
+                              variant: "destructive",
+                              duration: 8000
+                            })
+                            return
+                          }
+                          
+                          // Check if this is an optimization failure
                           const isOptimizationFailure = errorMessage.includes('Judge optimization failed') || errorMessage.includes('422')
                           
                           if (isOptimizationFailure) {
                             toast({
                               title: "Judge Optimization Failed",
-                              description: "Judge optimization failed. Please check the app logs for details.",
-                              variant: "destructive"
+                              description: errorMessage.includes('Judge optimization failed') 
+                                ? errorMessage.replace('Judge optimization failed: ', '') 
+                                : errorMessage,
+                              variant: "destructive",
+                              duration: 15000 // Show for 15 seconds
                             })
                           } else if (needsRefresh) {
                             toast({
@@ -1194,8 +1288,19 @@ export default function JudgeDetailPage() {
                             <div key={comparison.trace_id} className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => toggleComparisonExpanded(comparison.trace_id)}>
                               {/* Collapsed View */}
                               <div className="flex items-center gap-3">
-                                <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono">
-                                  {comparison.trace_id}
+                                <div 
+                                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-mono cursor-pointer hover:bg-blue-200 flex items-center gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (databricksHost && judge?.experiment_id) {
+                                      const traceUrl = `${databricksHost}/ml/experiments/${judge.experiment_id}/traces?selectedEvaluationId=${comparison.trace_id}`
+                                      window.open(traceUrl, '_blank')
+                                    }
+                                  }}
+                                  title={`Open trace ${comparison.trace_id} in new tab`}
+                                >
+                                  <span>{comparison.trace_id.length > 12 ? `${comparison.trace_id.substring(0, 12)}...` : comparison.trace_id}</span>
+                                  <ExternalLink className="w-3 h-3" />
                                 </div>
                                 <span className="text-sm flex-1">{comparison.request}</span>
                                 
@@ -1308,7 +1413,7 @@ export default function JudgeDetailPage() {
 
       {/* Add Examples Modal */}
       <Dialog open={addExamplesModalOpen} onOpenChange={setAddExamplesModalOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[80vh]">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Add Examples</DialogTitle>
             <DialogDescription>
@@ -1316,8 +1421,45 @@ export default function JudgeDetailPage() {
             </DialogDescription>
           </DialogHeader>
           
+          {/* Instructions */}
+          <div className="space-y-4 mb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="space-y-3">
+                <div className="font-medium text-blue-900">Option 1: Add from Trace UI</div>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+                  <li>
+                    Open your{' '}
+                    {databricksHost && judge?.experiment_id ? (
+                      <button
+                        onClick={() => openExperimentLink(judge.experiment_id)}
+                        className="text-blue-600 underline hover:text-blue-800"
+                      >
+                        experiment
+                      </button>
+                    ) : (
+                      'experiment'
+                    )}{' '}
+                    and select some traces
+                  </li>
+                  <li>Click on "Actions &gt; Add to Labeling Session"</li>
+                  <li>Add to the labeling session that corresponds to your judge name</li>
+                </ol>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-3 bg-white text-gray-500 font-medium">OR</span>
+              </div>
+            </div>
+          </div>
           
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4">
+            <div className="font-medium text-gray-900">Option 2: Add from Judge Builder</div>
+            
             {tracesError && (
               <div className="text-red-600 text-sm p-3 bg-red-50 border border-red-200 rounded">
                 Error loading traces: {tracesError}
@@ -1421,7 +1563,8 @@ export default function JudgeDetailPage() {
             )}
           </div>
           
-          <div className="flex justify-end gap-2 pt-4">
+          {/* Fixed footer with buttons */}
+          <div className="flex justify-end gap-2 pt-4 border-t bg-white">
             <Button variant="outline" onClick={() => setAddExamplesModalOpen(false)}>
               Cancel
             </Button>

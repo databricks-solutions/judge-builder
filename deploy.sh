@@ -114,7 +114,7 @@ else
     fi
     
     # Create the app
-    echo -n "Creating app..."
+    echo -n "Creating app (this will take a few minutes)..."
     if databricks apps create "$APP_NAME" --profile "$DATABRICKS_CONFIG_PROFILE" > /dev/null 2>&1; then
         echo " ✅"
     else

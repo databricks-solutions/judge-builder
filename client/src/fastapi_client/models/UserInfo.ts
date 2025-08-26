@@ -18,5 +18,9 @@ export type UserInfo = {
      * Databricks workspace host URL
      */
     databricks_host?: (string | null);
+    /**
+     * Databricks service principal ID
+     */
+    service_principal_id?: (string | null);
 };
 

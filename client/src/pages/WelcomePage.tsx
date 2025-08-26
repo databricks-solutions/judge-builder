@@ -28,6 +28,7 @@ export default function WelcomePage() {
   const [smeEmails, setSmeEmails] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [databricksHost, setDatabricksHost] = useState<string | null>(null)
+  const [servicePrincipalId, setServicePrincipalId] = useState<string | null>(null)
   const [deletingJudgeIds, setDeletingJudgeIds] = useState<Set<string>>(new Set())
 
   // Fetch judges on component mount
@@ -75,6 +76,9 @@ export default function WelcomePage() {
         
         if (userInfo.databricks_host) {
           setDatabricksHost(userInfo.databricks_host)
+        }
+        if (userInfo.service_principal_id) {
+          setServicePrincipalId(userInfo.service_principal_id)
         }
       } catch (error) {
         console.error('Failed to load user info:', error)
@@ -366,18 +370,72 @@ export default function WelcomePage() {
               <label className="block text-sm font-medium mb-2">
                 MLflow Experiment ID *
               </label>
-              <ExperimentSelector
-                selectedExperimentId={experimentId}
-                onExperimentSelect={setExperimentId}
-              />
-              <p className="text-red-600 font-bold text-sm mt-2">
-                You must give the Databricks App Service Principal CAN_MANAGE access to this experiment
-              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex-grow">
+                  <ExperimentSelector
+                    selectedExperimentId={experimentId}
+                    onExperimentSelect={setExperimentId}
+                  />
+                </div>
+                {experimentId && databricksHost && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-shrink-0"
+                    onClick={() => window.open(`${databricksHost}/ml/experiments/${experimentId}`, '_blank')}
+                    title="Open experiment in Databricks"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+              
+              {/* Service Principal ID Box - Only render if ID exists */}
+              {servicePrincipalId && (
+                <div className="mt-3 py-2 px-3 border border-blue-300 bg-blue-50 rounded text-xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-700">Service Principal ID:</span>
+                      <code className="text-blue-900 font-mono text-xs">
+                        {servicePrincipalId}
+                      </code>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(servicePrincipalId)
+                          // Show brief visual feedback with darker blue
+                          const button = document.activeElement as HTMLButtonElement
+                          if (button) {
+                            button.style.backgroundColor = '#1e40af'
+                            button.style.color = 'white'
+                            setTimeout(() => {
+                              button.style.backgroundColor = ''
+                              button.style.color = ''
+                            }, 500)
+                          }
+                        } catch (err) {
+                          console.error('Failed to copy:', err)
+                        }
+                      }}
+                      title="Copy Service Principal ID"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <p className="text-red-600 font-bold text-xs">
+                    You must give this Service Principal CAN_MANAGE access to the experiment
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
               <label htmlFor="smeEmails" className="block text-sm font-medium mb-2">
-                Subject Matter Expert Emails (optional)
+                Subject Matter Expert Emails *
               </label>
               <Input
                 id="smeEmails"
@@ -396,7 +454,8 @@ export default function WelcomePage() {
               disabled={
                 isCreating ||
                 (selectedTemplate === "custom" && (!judgeName || !judgeInstruction)) || 
-                !experimentId
+                !experimentId ||
+                !smeEmails.trim()
               }
             >
               {isCreating ? (

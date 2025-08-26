@@ -114,6 +114,7 @@ class UserInfo(BaseModel):
     userName: str = Field(..., description='Username')
     displayName: str = Field(..., description='Display name')
     databricks_host: Optional[str] = Field(None, description='Databricks workspace host URL')
+    service_principal_id: Optional[str] = Field(None, description='Databricks service principal ID')
 
 
 class JudgeTraceResult(BaseModel):

@@ -7,7 +7,6 @@ import dspy
 import mlflow
 
 from server.prompts import OPTIMIZED_JUDGE_PROMPT_TEMPLATE
-from server.utils import dspy_utils
 from server.utils.naming_utils import sanitize_judge_name
 from server.utils.parsing_utils import extract_request_from_trace, extract_response_from_trace
 
@@ -143,7 +142,7 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
                 auto='light',  # Use auto mode to avoid parameter conflicts
             )
         elif self.optimizer_algorithm == 'simba':
-            return dspy.SIMBA(metric=agreement_metric, bsize=8)
+            return dspy.SIMBA(metric=agreement_metric, bsize=4)
         else:
             raise ValueError(f'Unsupported optimizer algorithm: {self.optimizer_algorithm}')
 
@@ -167,12 +166,6 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
         """
         try:
             judge_name = sanitize_judge_name(judge_name)
-
-            # Set up DSPy language model
-            lm = dspy_utils.AgentEvalLM()
-
-            # Configure DSPy to use this language model
-            dspy.configure(lm=lm)
 
             # Extract instructions from prompt
             instructions = self._extract_instructions(prompt)

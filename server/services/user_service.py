@@ -14,10 +14,13 @@ class UserService:
         if databricks_host and not databricks_host.startswith('http'):
             databricks_host = f'https://{databricks_host}'
             
+        service_principal_id = os.getenv('DATABRICKS_CLIENT_ID')
+        
         return UserInfo(
             userName='demo_user@company.com',
             displayName='Demo User',
             databricks_host=databricks_host,
+            service_principal_id=service_principal_id,
         )
 
 
