@@ -236,17 +236,12 @@ def custom_prompt_judge_scorer(inputs, outputs, trace=None):
             return False
 
         try:
-            # Split traces into train/eval (50/50 split)
-            split_idx = int(len(traces) * 0.5)
-            train_data = traces[:split_idx]
-            eval_data = traces[split_idx:] if split_idx < len(traces) else []
-
             # Run optimization
             result = self.optimizer.run_optimization(
                 judge_name=self.name,
                 prompt=self.prompt_template,
-                train_data=train_data,
-                eval_data=eval_data,
+                train_data=traces,
+                eval_data=traces,
             )
 
             # Update the judge's prompt template with optimized version

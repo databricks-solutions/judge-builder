@@ -189,7 +189,7 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
             )
 
             # Create DSPy program
-            program = dspy.Predict(signature)
+            program = dspy.ChainOfThought(signature)
             logger.info('Created DSPy program with signature')
 
             # Convert data to DSPy format
@@ -213,13 +213,9 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
             def agreement_metric(example, pred, trace=None):
                 """Simple agreement metric for judge optimization."""
                 try:
-                    # Get expected and predicted results
-                    expected = example.result if hasattr(example, 'result') else 'pass'
-                    predicted = pred.result if hasattr(pred, 'result') else 'pass'
-
-                    # Normalize both to consistent format
-                    expected_norm = str(expected).lower().strip()
-                    predicted_norm = str(predicted).lower().strip()
+                    # Normalize both example and pred to consistent format
+                    expected_norm = str(example.result).lower().strip()
+                    predicted_norm = str(pred.result).lower().strip()
 
                     agreement = 1.0 if expected_norm == predicted_norm else 0.0
 
@@ -255,7 +251,7 @@ class CustomPromptOptimizer(DSPyPromptOptimizer):
             logger.info(f'{optimizer_name} compilation completed')
 
             # Extract the optimized instructions and format using shared template
-            optimized_instructions = optimized_program.signature.instructions
+            optimized_instructions = optimized_program.predict.signature.instructions
 
             optimized_prompt = OPTIMIZED_JUDGE_PROMPT_TEMPLATE.format(
                 system_instructions=optimized_instructions
