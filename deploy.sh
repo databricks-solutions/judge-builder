@@ -4,6 +4,9 @@ set -e
 echo "🚀 Deploying Judge Builder"
 echo "=========================="
 
+# Initialize log file
+echo "Deploy started at $(date)" > ./tmp-deploy-logs.txt
+
 # Check for uv (should be installed by setup.sh)
 if ! command -v uv &> /dev/null; then
     echo "❌ uv not found. Please run ./setup.sh first."
@@ -65,7 +68,19 @@ echo "📂 Source code path: $DATABRICKS_SOURCE_CODE_PATH"
 # Build frontend
 echo "🏗️ Building frontend..."
 cd client
-npm run build > /dev/null 2>&1
+echo "Building frontend at $(date)" >> ../tmp-deploy-logs.txt
+
+# Clean and reinstall dependencies if build fails
+if ! npm run build >> ../tmp-deploy-logs.txt 2>&1; then
+    echo "Cleaning node_modules and reinstalling dependencies at $(dat)" >> ../tmp-deploy-logs.txt
+    rm -rf node_modules package-lock.json
+    npm install >> ../tmp-deploy-logs.txt 2>&1
+    if ! npm run build >> ../tmp-deploy-logs.txt 2>&1; then
+        cd ..
+        exit 1
+    fi
+fi
+
 cd ..
 
 # Generate requirements.txt
@@ -80,14 +95,14 @@ command:
   - "server.app:app"
 env:
   - name: "JUDGE_OPTIMIZER"
-    value: "${JUDGE_OPTIMIZER:-miprov2}"
+    value: "${JUDGE_OPTIMIZER:-simba}"
 EOF
 
 # Create workspace directory and sync source
 echo "📂 Creating workspace directory..."
 databricks workspace mkdirs "$DATABRICKS_SOURCE_CODE_PATH" --profile "$DATABRICKS_CONFIG_PROFILE"
 
-echo "📤 Syncing source code to workspace..."
+echo "📤 Syncing source code to workspace (this can take a few minutes)..."
 databricks sync --full . "$DATABRICKS_SOURCE_CODE_PATH" --profile "$DATABRICKS_CONFIG_PROFILE" > /dev/null 2>&1
 
 # Create app if it doesn't exist
@@ -115,11 +130,13 @@ else
     
     # Create the app
     echo -n "Creating app (this will take a few minutes)..."
-    if databricks apps create "$APP_NAME" --profile "$DATABRICKS_CONFIG_PROFILE" > /dev/null 2>&1; then
+    echo "Creating app $APP_NAME at $(date)" >> ./tmp-deploy-logs.txt
+    if databricks apps create "$APP_NAME" --profile "$DATABRICKS_CONFIG_PROFILE" >> ./tmp-deploy-logs.txt 2>&1; then
         echo " ✅"
     else
         echo ""
         echo "❌ Could not create app $APP_NAME"
+        echo "Check ./tmp-deploy-logs.txt for details"
         exit 1
     fi
 fi
