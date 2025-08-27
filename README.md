@@ -12,7 +12,7 @@ Judge Builder enables you to align custom LLM judges or the built-in Databricks 
 
 - Python 3.9+
 - Node.js 18+
-- uv (Python package manager)
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
 
 ### Setup
 
@@ -48,11 +48,23 @@ This runs both the FastAPI backend (port 8001) and React frontend (port 3000) in
 
 ## Usage
 
-1. **Create a Judge**: Start by creating a new judge with a name, instruction, and experiment ID
-2. **Add Examples**: Import traces from MLflow experiments to use as evaluation examples
-3. **Labeling**: Invite SMEs to provide human feedback
-4. **Align Judge**: Run alignment to optimize the judge based on human feedback
-5. **Evaluate**: Test the aligned judge on new examples and review performance
+1. **Create a Judge**: Start by creating a new judge with a name, instruction, and experiment ID. You will also invite SMEs to provide human feedback.
+2. **Add Examples**: Add traces from the attached experiment to use as examples for your judge to learn from.
+3. **Labeling**: The SME will provide human feedback over the added examples.
+4. **Align Judge**: Run alignment to optimize the judge based on human feedback. You can review the performance of the judge before and after alignment.
+
+**Note:** In the existing MVP, we only support binary outcome judges (pass/fail) over the request and response. We will introduce support for additional fields soon.
+
+To retrieve the judge to use in online/offline evaluations, use the `list_scorers()` API:
+
+```python
+# Run `pip install -U "mlflow[databricks]>=3.2.0"` to get the `list_scorers` API
+
+from mlflow.genai.scorers import list_scorers
+
+mlflow.set_experiment(experiment_id="<YOUR_EXPERIMENT_ID>")
+list_scorers()
+```
 
 ## How to get help
 
