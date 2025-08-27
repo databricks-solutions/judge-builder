@@ -18,7 +18,7 @@ Judge Builder enables you to align custom LLM judges or the built-in Databricks 
 
 ```bash
 git clone https://github.com/databricks-solutions/judge-builder.git
-cd judge-builder-v1
+cd judge-builder
 ./setup.sh
 ```
 
