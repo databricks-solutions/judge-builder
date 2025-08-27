@@ -193,7 +193,6 @@ class AlignmentService(BaseService):
         # Get traces from labeling session
         examples = labeling_service.get_examples(judge_id)
         trace_ids = [ex.trace_id for ex in examples]
-
         if not trace_ids:
             raise ValueError('No traces found for alignment comparison')
 
@@ -203,6 +202,7 @@ class AlignmentService(BaseService):
             # Get the actual trace object from cache to access assessments
             trace = cache_service.get_trace(ex.trace_id)
             if not trace:
+                logger.warning(f'Trace {ex.trace_id} not found in cache for judge {judge_id}')
                 continue
 
             human_feedback = get_human_feedback_from_trace(judge.name, trace)
@@ -212,7 +212,7 @@ class AlignmentService(BaseService):
         # Get evaluation run IDs for both versions (cache will automatically search MLflow if needed)
         prev_run_id = cache_service.get_evaluation_run_id(judge_id, judge.version - 1, trace_ids, judge.experiment_id)
         curr_run_id = cache_service.get_evaluation_run_id(judge_id, judge.version, trace_ids, judge.experiment_id)
-
+        
         if not prev_run_id or not curr_run_id:
             raise ValueError('Evaluation runs not found. Please run alignment first.')
 
@@ -230,13 +230,23 @@ class AlignmentService(BaseService):
             prev_feedback = get_scorer_feedback_from_trace(judge.name, judge.version - 1, trace)
             curr_feedback = get_scorer_feedback_from_trace(judge.name, judge.version, trace)
 
-            if not prev_feedback or not curr_feedback:
+            if not prev_feedback:
+                logger.warning(f'Skipping trace {example.trace_id}: missing previous judge feedback (v{judge.version - 1})')
+                continue
+                
+            if not curr_feedback:
+                logger.warning(f'Skipping trace {example.trace_id}: missing current judge feedback (v{judge.version})')
                 continue
 
             # Skip assessments with errors
-            if assessment_has_error(human_feedback) or assessment_has_error(prev_feedback) or assessment_has_error(curr_feedback):
+            has_human_error = assessment_has_error(human_feedback)
+            has_prev_error = assessment_has_error(prev_feedback)
+            has_curr_error = assessment_has_error(curr_feedback)
+            
+            if has_human_error or has_prev_error or has_curr_error:
+                logger.warning(f'Skipping trace {example.trace_id}: has errors (human={has_human_error}, prev={has_prev_error}, curr={has_curr_error})')
                 continue
-
+            
             human_labels.append(human_feedback.feedback.value)
             comparisons.append(AlignmentComparison(
                 trace_id=example.trace_id,
@@ -246,7 +256,7 @@ class AlignmentService(BaseService):
                 previous_judge_feedback=prev_feedback,
                 new_judge_feedback=curr_feedback
             ))
-
+        
         if not human_labels:
             raise ValueError('No valid examples with both human and judge feedback found')
 
@@ -309,10 +319,14 @@ class AlignmentService(BaseService):
         logger.info(f'Invalidating trace cache for {len(trace_ids)} traces after evaluation')
         cache_service.invalidate_traces(trace_ids)
 
+        # Get fresh traces with updated judge feedback for optimization
+        fresh_traces = cache_service.get_traces(trace_ids)
+        logger.info(f'Retrieved {len(fresh_traces)} fresh traces for optimization')
+
         # Step 2: Run optimization on the judge
         logger.info(f'Starting optimization for judge {judge_id}')
         judge_instance = judge_service._judges[judge_id]
-        optimization_success = judge_instance.optimize(traces)
+        optimization_success = judge_instance.optimize(fresh_traces)
         
         # Check if optimization failed and fail early
         if not optimization_success:

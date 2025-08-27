@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight } from "lucide-react"
+import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, AlertTriangle } from "lucide-react"
 import { LoadingDots } from "@/components/ui/loading-dots"
 import { useToast } from "@/contexts/ToastContext"
 
@@ -215,10 +215,10 @@ export default function JudgeDetailPage() {
       // If successful, refresh the judge data and fetch alignment comparison
       refetchJudge()
       fetchAlignmentComparison().catch(error => {
-        console.error(`[Alignment Refresh] Error fetching alignment comparison:`, error)
+        console.error('Error fetching alignment comparison:', error)
       })
     } catch (error) {
-      console.error('[Alignment Refresh] Failed to check alignment status:', error)
+      console.error('Failed to check alignment status:', error)
       toast({
         title: "Failed to check alignment status",
         description: "Please try again or check the app's logs",
@@ -300,7 +300,7 @@ export default function JudgeDetailPage() {
     
     if (activeTab === 'align' && judge?.version && judge.version >= 2 && judgeId && !alignmentData && !alignmentDataLoading && !alignmentHasFetched) {
       fetchAlignmentComparison().catch(error => {
-        console.error('[Alignment Debug] Failed to fetch alignment comparison in useEffect:', error)
+        console.error('Failed to fetch alignment comparison:', error)
       })
     }
   }, [activeTab, judge?.version, judgeId, alignmentData, alignmentDataLoading, alignmentHasFetched, fetchAlignmentComparison])
@@ -867,10 +867,10 @@ export default function JudgeDetailPage() {
                     refetchJudge()
                     // Refresh alignment comparison data
                     fetchAlignmentComparison().catch(error => {
-                      console.error(`[Alignment Debug] Error fetching alignment comparison after runAlignment for judge ${judgeId}:`, error)
+                      console.error('Error fetching alignment comparison after runAlignment:', error)
                     })
                   } catch (error) {
-                    console.error('[Alignment Debug] Failed to run alignment:', error)
+                    console.error('Failed to run alignment:', error)
                     
                     // Check if this is an insufficient examples error
                     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -931,7 +931,7 @@ export default function JudgeDetailPage() {
                   }
                 }
               }} 
-              className="flex items-center gap-2"
+              className={`flex items-center gap-2 ${readyForAlignment === 0 ? 'opacity-50' : ''}`}
               disabled={alignmentLoading}
             >
               {alignmentLoading ? (
@@ -1011,7 +1011,7 @@ export default function JudgeDetailPage() {
                   </div>
                   <Button 
                     size="lg"
-                    className="flex items-center gap-2" 
+                    className={`flex items-center gap-2 ${readyForAlignment === 0 ? 'opacity-50' : ''}`} 
                     onClick={async () => {
                       if (readyForAlignment === 0) {
                         toast({
@@ -1033,10 +1033,10 @@ export default function JudgeDetailPage() {
                           refetchJudge()
                           // Refresh alignment comparison data
                           fetchAlignmentComparison().catch(error => {
-                            console.error(`[Alignment Debug] Error fetching alignment comparison after runAlignment for judge ${judgeId} (v1 tab):`, error)
+                            console.error('Error fetching alignment comparison after runAlignment:', error)
                           })
                         } catch (error) {
-                          console.error('[Alignment Debug] Failed to run alignment (v1 tab):', error)
+                          console.error('Failed to run alignment:', error)
                           
                           // Check if this is an insufficient examples error
                           const errorMessage = error instanceof Error ? error.message : String(error)

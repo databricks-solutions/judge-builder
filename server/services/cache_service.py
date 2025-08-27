@@ -69,6 +69,24 @@ class CacheService:
             logger.warning(f'Failed to fetch trace {trace_id}: {e}')
             return None
 
+    def get_traces(self, trace_ids: List[str]) -> List['mlflow.entities.Trace']:
+        """Get multiple traces from cache or fetch from MLflow.
+
+        Args:
+            trace_ids: List of MLflow trace IDs
+
+        Returns:
+            List of MLflow trace objects (excludes any that couldn't be fetched)
+        """
+        traces = []
+        for trace_id in trace_ids:
+            trace = self.get_trace(trace_id)
+            if trace:
+                traces.append(trace)
+            else:
+                logger.warning(f'Could not fetch trace {trace_id} from cache')
+        return traces
+
     def get_evaluation_run_id(
         self, judge_id: str, judge_version: int, trace_ids: List[str], experiment_id: Optional[str] = None
     ) -> Optional[str]:
@@ -88,7 +106,7 @@ class CacheService:
 
         if cache_key in self.evaluation_cache:
             run_id = self.evaluation_cache[cache_key]
-            logger.debug(f'Cache hit for evaluation {cache_key} -> {run_id}')
+            logger.debug(f'Cache hit for evaluation {cache_key}')
             return run_id
 
         logger.debug(f'Cache miss for evaluation {cache_key}')
@@ -100,12 +118,15 @@ class CacheService:
                 logger.debug(f'Found evaluation run in MLflow: {run_id}')
                 return run_id
 
+        logger.debug(f'No evaluation run found for {cache_key}')
         return None
 
     def find_evaluation_run(self, judge_id: str, judge_version: int, experiment_id: str, dataset_version: str) -> Optional[str]:
         """Find existing evaluation run in MLflow by searching for runs with matching tags."""
-        try:
-            # Search for runs in the experiment with judge tags
+        from server.utils.naming_utils import sanitize_judge_name
+        
+        try:            
+            # Method 1: Search for runs with judge tags
             runs = mlflow.search_runs(
                 experiment_ids=[experiment_id],
                 filter_string=f"tags.judge_id = '{judge_id}' and tags.judge_version = '{judge_version}' and tags.dataset_version = '{dataset_version}'",
@@ -117,6 +138,30 @@ class CacheService:
                 # Cache the found run
                 self.evaluation_cache[f'{judge_id}:{judge_version}:{dataset_version}'] = run_id
                 return run_id
+
+            # Method 2: Fallback - search by run name pattern if tag search fails
+            # Get judge metadata to find judge name
+            from server.services.judge_service import judge_service
+            judge = judge_service.get_judge(judge_id)
+            if not judge:
+                return None
+                
+            sanitized_name = sanitize_judge_name(judge.name)
+            run_name_pattern = f"evaluation_{sanitized_name}_v{judge_version}"
+            
+            # Search for runs by name pattern
+            all_runs = mlflow.search_runs(
+                experiment_ids=[experiment_id],
+                output_format='list',
+                max_results=100  # Limit to avoid performance issues
+            )
+            
+            for run in all_runs:
+                if run.info.run_name and run_name_pattern in run.info.run_name:
+                    run_id = run.info.run_id
+                    # Cache the found run
+                    self.evaluation_cache[f'{judge_id}:{judge_version}:{dataset_version}'] = run_id
+                    return run_id
 
             return None
 
@@ -139,7 +184,7 @@ class CacheService:
         cache_key = f'{judge_id}:{judge_version}:{dataset_version}'
 
         self.evaluation_cache[cache_key] = run_id
-        logger.debug(f'Cached evaluation {cache_key} -> {run_id}')
+        logger.debug(f'Cached evaluation {cache_key} (dataset with {len(trace_ids)} traces)')
 
     def invalidate_trace(self, trace_id: str) -> None:
         """Invalidate cached trace.

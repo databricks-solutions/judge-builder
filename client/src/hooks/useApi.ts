@@ -247,51 +247,48 @@ export function useAlignmentComparison(judgeId: string | undefined) {
   const [hasFetched, setHasFetched] = useState(false)
 
   const fetchComparison = useCallback(async (maxRetries = 5) => {
-    if (!judgeId) {
-      return
-    }
+    try {
+      if (!judgeId) {
+        return null
+      }
 
-    setHasFetched(true)
-    setLoading(true)
-    setError(null)
-    
-    const attemptFetch = async (attempt: number): Promise<any> => {
-      try {
-        const response = await AlignmentService.getAlignmentComparisonApiAlignmentJudgeIdAlignmentComparisonGet(judgeId)
-        setData(response)
-        setRetryCount(0) // Reset retry count on success
-        setLoading(false)
-        return response
-      } catch (err) {
-        console.error(`[Alignment Debug] Error fetching alignment comparison for judge ${judgeId} (attempt ${attempt + 1}):`, err)
-        console.error(`[Alignment Debug] Error details:`, {
-          name: err instanceof Error ? err.name : 'Unknown',
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-          judgeId,
-          attempt: attempt + 1,
-          maxRetries
-        })
-        
-        if (attempt < maxRetries - 1) {
-          // Wait before retrying (exponential backoff: 1s, 2s, 4s, 8s, 16s)
-          const delay = Math.pow(2, attempt) * 1000
-          await new Promise(resolve => setTimeout(resolve, delay))
-          setRetryCount(attempt + 1)
-          return attemptFetch(attempt + 1)
-        } else {
-          // Max retries reached
-          const errorMessage = err instanceof Error ? err.message : 'Failed to fetch alignment comparison'
-          console.error(`[Alignment Debug] Max retries (${maxRetries}) reached for judge ${judgeId}. Final error:`, errorMessage)
-          setError(errorMessage)
-          setRetryCount(maxRetries)
+      setHasFetched(true)
+      setLoading(true)
+      setError(null)
+      
+      const attemptFetch = async (attempt: number): Promise<any> => {
+        try {
+          const response = await AlignmentService.getAlignmentComparisonApiAlignmentJudgeIdAlignmentComparisonGet(judgeId)
+          setData(response)
+          setRetryCount(0) // Reset retry count on success
           setLoading(false)
-          throw new Error(errorMessage)
+          return response
+        } catch (err) {
+          if (attempt < maxRetries - 1) {
+            // Wait before retrying (exponential backoff: 1s, 2s, 4s, 8s, 16s)
+            const delay = Math.pow(2, attempt) * 1000
+            await new Promise(resolve => setTimeout(resolve, delay))
+            setRetryCount(attempt + 1)
+            return attemptFetch(attempt + 1)
+          } else {
+            // Max retries reached - handle gracefully without throwing
+            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch alignment comparison'
+            setError(`Failed to load alignment data after ${maxRetries} attempts: ${errorMessage}`)
+            setRetryCount(maxRetries)
+            setLoading(false)
+            // Don't throw to prevent white page crash
+            return null
+          }
         }
       }
-    }
 
-    return attemptFetch(0)
+      return await attemptFetch(0)
+    } catch (outerError) {
+      // Outermost safety net for any errors
+      setError(`Error: ${outerError instanceof Error ? outerError.message : String(outerError)}`)
+      setLoading(false)
+      return null
+    }
   }, [])
 
   const resetData = useCallback(() => {
