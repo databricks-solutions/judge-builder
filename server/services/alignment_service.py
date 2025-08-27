@@ -216,6 +216,35 @@ class AlignmentService(BaseService):
         if not prev_run_id or not curr_run_id:
             raise ValueError('Evaluation runs not found. Please run alignment first.')
 
+        # Check if we need to run missing evaluations
+        missing_prev_count = 0
+        missing_curr_count = 0
+        
+        for example, human_feedback in examples_with_feedback:
+            trace = cache_service.get_trace(example.trace_id)
+            if not trace:
+                continue
+                
+            prev_feedback = get_scorer_feedback_from_trace(judge.name, judge.version - 1, trace)
+            curr_feedback = get_scorer_feedback_from_trace(judge.name, judge.version, trace)
+            
+            if not prev_feedback:
+                missing_prev_count += 1
+            if not curr_feedback:
+                missing_curr_count += 1
+        
+        # If ALL traces are missing previous feedback, run previous version evaluation
+        if missing_prev_count == len(examples_with_feedback):
+            logger.info(f'All traces missing previous judge feedback (v{judge.version - 1}), running evaluation')
+            self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
+            cache_service.invalidate_traces(trace_ids)
+        
+        # If ALL traces are missing current feedback, run current version evaluation  
+        if missing_curr_count == len(examples_with_feedback):
+            logger.info(f'All traces missing current judge feedback (v{judge.version}), running evaluation')
+            self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
+            cache_service.invalidate_traces(trace_ids)
+
         # Build per-row comparisons using trace_id matching
         comparisons = []
         human_labels = []

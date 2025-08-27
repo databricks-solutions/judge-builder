@@ -3,4 +3,4 @@ command:
   - "server.app:app"
 env:
   - name: "JUDGE_OPTIMIZER"
-    value: "miprov2"
+    value: "simba"
