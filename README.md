@@ -13,6 +13,7 @@ Judge Builder enables you to align custom LLM judges or the built-in Databricks 
 - Python 3.9+
 - Node.js 18+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [Databricks CLI](https://docs.databricks.com/aws/en/dev-tools/cli/) v0.230.0+
 
 ### Setup
 
