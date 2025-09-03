@@ -33,7 +33,7 @@ def to_attrdict(obj):
 class AgentEvalLM(dspy.BaseLM):
     def __init__(self):
         super().__init__('databricks/databricks-llama-4-maverick')
-        env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set('judge-builder-v{VERSION}')
+        env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(f'judge-builder-v{VERSION}')
 
     def dump_state(self):
         return {}
