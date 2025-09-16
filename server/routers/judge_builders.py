@@ -53,7 +53,7 @@ async def delete_judge_builder(judge_id: str):
     """Delete a judge builder."""
     try:
         deletion_success, warnings = judge_builder_service.delete_judge_builder(judge_id)
-        
+
         # Always return success so frontend refreshes the judge list
         # Surface warnings as different message types
         if deletion_success and not warnings:
@@ -72,7 +72,7 @@ async def delete_judge_builder(judge_id: str):
                 'error': '; '.join(warnings) if warnings else 'Unknown error',
                 'warnings': warnings
             }
-            
+
     except Exception as e:
         logger.error(f'Unexpected error deleting judge builder {judge_id}: {e}\n{traceback.format_exc()}')
         return {

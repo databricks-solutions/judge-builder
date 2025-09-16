@@ -183,12 +183,12 @@ class LabelingService(BaseService):
         traces = experiment_service.get_experiment_traces(
             judge_response.experiment_id, session.mlflow_run_id
         )
-        
+
         # If include_judge_results is True, populate judge_assessment for each trace
         if include_judge_results:
             from server.services.cache_service import cache_service
             from server.utils.parsing_utils import get_scorer_feedback_from_trace
-            
+
             for trace_example in traces:
                 try:
                     # Get the full trace from cache to access assessments
@@ -202,7 +202,7 @@ class LabelingService(BaseService):
                 except Exception as e:
                     logger.warning(f'Failed to get judge assessment for trace {trace_example.trace_id}: {e}')
                     trace_example.judge_assessment = None
-        
+
         return traces
 
     def get_labeling_progress(self, judge_id: str) -> LabelingProgress:
@@ -288,7 +288,7 @@ class LabelingService(BaseService):
         try:
             if not judge_response.labeling_run_id:
                 return 0
-            
+
             import mlflow
             run = mlflow.get_run(judge_response.labeling_run_id)
             if run and run.data.tags:

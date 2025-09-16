@@ -56,7 +56,7 @@ class TestAlignmentService:
     def test_get_judge_scorer_success(self, alignment_service, mock_judge):
         """Test successful retrieval of judge scorer."""
         mock_scorer = Mock()
-        mock_scorer.name = 'v2_custom_prompt_judge_test_judge'
+        mock_scorer.name = 'v2_instruction_judge_test_judge'
 
         with patch('server.services.alignment_service.scorers.list_scorers') as mock_list:
             mock_list.return_value = [mock_scorer]
@@ -97,7 +97,7 @@ class TestAlignmentService:
         mock_cache_service.get_evaluation_run_id.return_value = None
         mock_cache_service.get_trace.return_value = mock_trace
         mock_scorer = Mock()
-        mock_scorer.name = 'v2_custom_prompt_judge_test_judge'
+        mock_scorer.name = 'v2_instruction_judge_test_judge'
         mock_run = Mock()
         mock_run.info.run_id = 'new-run-123'
         mock_mlflow.start_run.return_value.__enter__.return_value = mock_run

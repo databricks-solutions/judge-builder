@@ -101,10 +101,10 @@ class TestNamingUtils(TestCase):
     def test_create_scorer_name(self):
         """Test scorer name creation."""
         test_cases = [
-            ('Quality Judge', 1, 'v1_custom_prompt_judge_quality_judge'),
-            ('Multi-Word Name', 2, 'v2_custom_prompt_judge_multi_word_name'),
-            ('Test@Judge#123', 10, 'v10_custom_prompt_judge_test_judge_123'),
-            ('', 1, 'v1_custom_prompt_judge_'),
+            ('Quality Judge', 1, 'v1_instruction_judge_quality_judge'),
+            ('Multi-Word Name', 2, 'v2_instruction_judge_multi_word_name'),
+            ('Test@Judge#123', 10, 'v10_instruction_judge_test_judge_123'),
+            ('', 1, 'v1_instruction_judge_'),
         ]
         for judge_name, version, expected in test_cases:
             with self.subTest(judge_name=judge_name, version=version):
