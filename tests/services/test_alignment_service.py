@@ -6,6 +6,7 @@ import pytest
 from mlflow.entities import Assessment, AssessmentSource, Trace
 
 from server.models import (
+    ConfusionMatrix,
     JudgeResponse,
     SingleJudgeTestRequest,
     TraceRequest,
@@ -190,6 +191,51 @@ class TestAlignmentService:
         assert matrix.false_negative == 1  # human pass, judge fail
         assert matrix.false_positive == 1  # human fail, judge pass
         assert matrix.true_negative == 1  # human fail, judge fail
+
+    def test_confusion_matrix_accuracy_calculation(self, alignment_service):
+        """Test ConfusionMatrix accuracy property."""
+        # Test case from user's screenshot: TP=4, FN=0, FP=3, TN=3
+        matrix = ConfusionMatrix(
+            true_positive=4,
+            false_negative=0,
+            false_positive=3,
+            true_negative=3
+        )
+        
+        # Accuracy should be (4+3)/(4+0+3+3) = 7/10 = 0.7 = 70%
+        assert matrix.accuracy == 0.7
+        
+    def test_confusion_matrix_edge_cases(self, alignment_service):
+        """Test ConfusionMatrix edge cases."""
+        # Perfect accuracy
+        perfect = ConfusionMatrix(true_positive=5, false_negative=0, false_positive=0, true_negative=5)
+        assert perfect.accuracy == 1.0
+        
+        # Zero accuracy
+        worst = ConfusionMatrix(true_positive=0, false_negative=5, false_positive=5, true_negative=0)
+        assert worst.accuracy == 0.0
+        
+        # Empty matrix
+        empty = ConfusionMatrix(true_positive=0, false_negative=0, false_positive=0, true_negative=0)
+        assert empty.accuracy == 0.0
+
+    def test_calculate_confusion_matrix_user_case(self, alignment_service):
+        """Test the specific case from user's screenshot."""
+        # To get TP=4, FN=0, FP=3, TN=3:
+        # 4 cases: human=pass, judge=pass (TP)
+        # 0 cases: human=pass, judge=fail (FN)
+        # 3 cases: human=fail, judge=pass (FP) 
+        # 3 cases: human=fail, judge=fail (TN)
+        human_labels = ['pass', 'pass', 'pass', 'pass', 'fail', 'fail', 'fail', 'fail', 'fail', 'fail']
+        judge_results = ['pass', 'pass', 'pass', 'pass', 'pass', 'pass', 'pass', 'fail', 'fail', 'fail']
+        
+        matrix = alignment_service.calculate_confusion_matrix(human_labels, judge_results)
+        
+        assert matrix.true_positive == 4
+        assert matrix.false_negative == 0  
+        assert matrix.false_positive == 3
+        assert matrix.true_negative == 3
+        assert matrix.accuracy == 0.7  # 70%
 
     @patch('server.services.alignment_service.cache_service')
     def test_run_alignment_success(self, mock_cache_service, alignment_service,

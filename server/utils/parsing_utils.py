@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from mlflow.entities import Feedback, Trace
 
-from server.utils.naming_utils import sanitize_judge_name
+from server.utils.naming_utils import create_scorer_name, sanitize_judge_name
 
 
 def extract_text_from_data(data: Any, field_type: str) -> str:
@@ -125,13 +125,12 @@ def get_scorer_feedback_from_trace(judge_name: str, judge_version: int, trace: T
     if not trace.info.assessments:
         return None
 
-    # Normalize judge name for comparison
-    normalized_judge_name = sanitize_judge_name(judge_name)
+    # Create the expected scorer name
+    scorer_name = create_scorer_name(judge_name, judge_version)
 
     for assessment in trace.info.assessments:
-        if (assessment.name == normalized_judge_name and
-            assessment.source.source_type == 'LLM_JUDGE' and
-            assessment.metadata.get('version') == str(judge_version)):
+        if (assessment.name == scorer_name and
+            assessment.source.source_type == 'LLM_JUDGE'):
             return assessment
 
     return None
