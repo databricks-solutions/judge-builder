@@ -125,7 +125,7 @@ if [ "$UPDATE_CONFIG" = true ]; then
     if [ "$app_name" != "$DATABRICKS_APP_NAME" ]; then
         # Remove existing line and add new one
         if [ -f .env.local ]; then
-            sed -i.bak '/^DATABRICKS_CONFIG_PROFILE=/d' .env.local && rm .env.local.bak
+            sed -i.bak '/^DATABRICKS_APP_NAME=/d' .env.local && rm .env.local.bak
         fi
         echo "DATABRICKS_APP_NAME=$app_name" >> .env.local
         export DATABRICKS_APP_NAME="$app_name"

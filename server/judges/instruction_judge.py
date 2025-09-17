@@ -21,16 +21,18 @@ class InstructionJudge(BaseJudge):
         name: str,
         user_instructions: str,
         experiment_id: Optional[str] = None,
-        model: str = 'openai:/gpt-4',
     ):
         """Initialize InstructionJudge with MLflow make_judge API."""
         super().__init__(name, user_instructions, experiment_id)
 
         # Create MLflow judge using make_judge API - this becomes our scorer_func
+        logger.info(f"Creating MLflow judge with:")
+        logger.info(f"  name: {sanitize_judge_name(self.name)}")
+        logger.info(f"  instructions: {self.system_instructions}")
+        
         self.scorer_func = make_judge(
             name=sanitize_judge_name(self.name),
             instructions=self.system_instructions,
-            model=model,
         )
 
     def _create_scorer(self) -> Callable:

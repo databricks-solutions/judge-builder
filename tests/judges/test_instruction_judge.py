@@ -60,7 +60,6 @@ class TestInstructionJudge(TestCase):
         judge = InstructionJudge(
             name='Custom Model Judge',
             user_instructions='Test custom model',
-            model='anthropic:/claude-3-sonnet'
         )
 
         mock_make_judge.assert_called_once()
