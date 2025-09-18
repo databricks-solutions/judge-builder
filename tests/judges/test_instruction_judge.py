@@ -10,39 +10,30 @@ from server.judges.instruction_judge import InstructionJudge
 class TestInstructionJudge(TestCase):
     """Test cases for InstructionJudge class."""
 
-    @patch('server.judges.instruction_judge.make_judge')
-    def test_judge_creation_and_basic_properties(self, mock_make_judge):
+    def test_judge_creation_and_basic_properties(self):
         """Test that judge can be created with proper configuration."""
-        mock_judge = Mock()
-        mock_make_judge.return_value = mock_judge
-        
         judge = InstructionJudge(
             name='Quality Judge', 
-            user_instructions='Check if response is helpful and accurate',
+            user_instructions='Check if {{ inputs }} is helpful and {{ outputs }} is accurate',
             experiment_id='exp456'
         )
 
         # Test basic judge properties are set correctly
         self.assertEqual(judge.name, 'Quality Judge')
-        self.assertEqual(judge.user_instructions, 'Check if response is helpful and accurate')
+        self.assertEqual(judge.user_instructions, 'Check if {{ inputs }} is helpful and {{ outputs }} is accurate')
         self.assertEqual(judge.experiment_id, 'exp456')
         self.assertEqual(judge.version, 1)
         self.assertIsNotNone(judge.id)
-        
-        # Verify MLflow integration is properly initialized
-        mock_make_judge.assert_called_once()
         self.assertIsNotNone(judge.scorer_func)
 
-    @patch('server.judges.instruction_judge.make_judge')
-    def test_evaluate_returns_feedback_with_version(self, mock_make_judge):
+    def test_evaluate_returns_feedback_with_version(self):
         """Test that evaluate method returns feedback with version metadata."""
-        mock_judge = Mock()
+        judge = InstructionJudge(name='Test Judge', user_instructions='Evaluate {{ inputs }} and {{ outputs }}')
+        
+        # Mock scorer function behavior
         mock_feedback = Mock()
         mock_feedback.metadata = {'existing': 'data'}
-        mock_judge.return_value = mock_feedback
-        mock_make_judge.return_value = mock_judge
-        
-        judge = InstructionJudge(name='Test Judge', user_instructions='Test evaluation')
+        judge.scorer_func = Mock(return_value=mock_feedback)
 
         inputs = {'request': 'Test question'}
         outputs = {'response': 'Test answer'}
@@ -54,65 +45,64 @@ class TestInstructionJudge(TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.metadata['version'], '1')
         
-    @patch('server.judges.instruction_judge.make_judge')  
-    def test_evaluate_handles_missing_metadata(self, mock_make_judge):
+    def test_evaluate_handles_missing_metadata(self):
         """Test evaluate gracefully handles feedback without metadata."""
-        mock_judge = Mock()
+        judge = InstructionJudge(name='Test Judge', user_instructions='Evaluate {{ inputs }} and {{ outputs }}')
+        
+        # Mock scorer function behavior with no metadata
         mock_feedback = Mock()
         mock_feedback.metadata = None
-        mock_judge.return_value = mock_feedback
-        mock_make_judge.return_value = mock_judge
-        
-        judge = InstructionJudge(name='Test Judge', user_instructions='Test evaluation')
+        judge.scorer_func = Mock(return_value=mock_feedback)
 
         result = judge.evaluate({'input': 'test'}, {'output': 'test'})
 
         # Should add version metadata even when none exists
         self.assertEqual(result.metadata, {'version': '1'})
 
-    @patch('server.judges.instruction_judge.make_judge')
-    def test_scorer_registration_success(self, mock_make_judge):
+    def test_scorer_registration_success(self):
         """Test successful scorer registration."""
-        mock_judge = Mock()
-        mock_registered = Mock()
-        mock_judge.register.return_value = mock_registered
-        mock_make_judge.return_value = mock_judge
-        
         judge = InstructionJudge(
             name='Register Test Judge',
-            user_instructions='Test registration',
+            user_instructions='Rate {{ inputs }} and {{ outputs }}',
             experiment_id='exp123',
         )
-
+        
+        # Replace scorer_func with a mock that has register method
+        mock_scorer = Mock()
+        mock_registered = Mock()
+        mock_scorer.register.return_value = mock_registered
+        judge.scorer_func = mock_scorer
+        
         result = judge.register_scorer()
 
         # Should return registered scorer
         self.assertEqual(result, mock_registered)
+        mock_scorer.register.assert_called_once()
 
-    @patch('server.judges.instruction_judge.make_judge')
-    def test_scorer_registration_handles_failure(self, mock_make_judge):
+    def test_scorer_registration_handles_failure(self):
         """Test scorer registration gracefully handles failures."""
-        mock_judge = Mock()
-        mock_judge.register.side_effect = Exception("Registration failed")
-        mock_make_judge.return_value = mock_judge
+        judge = InstructionJudge(name='Test Judge', user_instructions='Rate {{ inputs }} and {{ outputs }}')
         
-        judge = InstructionJudge(name='Test Judge', user_instructions='Test registration')
-
+        # Replace scorer_func with a mock that fails registration
+        mock_scorer = Mock()
+        mock_scorer.register.side_effect = Exception("Registration failed")
+        judge.scorer_func = mock_scorer
+        
         result = judge.register_scorer()
 
         # Should handle error gracefully and return None
         self.assertIsNone(result)
 
-    @patch('server.judges.instruction_judge.make_judge')
-    def test_judge_optimization_success(self, mock_make_judge):
+    def test_judge_optimization_success(self):
         """Test successful judge optimization with training data."""
-        mock_judge = Mock()
-        mock_aligned_judge = Mock()
-        mock_judge.align.return_value = mock_aligned_judge
-        mock_make_judge.return_value = mock_judge
+        judge = InstructionJudge(name='Test Judge', user_instructions='Rate {{ inputs }} and {{ outputs }}')
         
-        judge = InstructionJudge(name='Test Judge', user_instructions='Test optimization')
-
+        # Replace scorer_func with a mock that has align method
+        mock_scorer = Mock()
+        mock_aligned_judge = Mock()
+        mock_scorer.align.return_value = mock_aligned_judge
+        judge.scorer_func = mock_scorer
+        
         # Provide sufficient training traces
         traces = [Mock() for _ in range(12)]
         result = judge.optimize(traces)
@@ -120,16 +110,17 @@ class TestInstructionJudge(TestCase):
         # Should return success and update judge
         self.assertTrue(result)
         self.assertEqual(judge.scorer_func, mock_aligned_judge)
+        mock_scorer.align.assert_called_once_with(traces=traces)
 
-    @patch('server.judges.instruction_judge.make_judge')
-    def test_judge_optimization_handles_failure(self, mock_make_judge):
+    def test_judge_optimization_handles_failure(self):
         """Test judge optimization handles alignment failures."""
-        mock_judge = Mock()
-        mock_judge.align.side_effect = Exception("Alignment failed")
-        mock_make_judge.return_value = mock_judge
+        judge = InstructionJudge(name='Test Judge', user_instructions='Rate {{ inputs }} and {{ outputs }}')
         
-        judge = InstructionJudge(name='Test Judge', user_instructions='Test optimization')
-
+        # Replace scorer_func with a mock that fails alignment
+        mock_scorer = Mock()
+        mock_scorer.align.side_effect = Exception("Alignment failed")
+        judge.scorer_func = mock_scorer
+        
         traces = [Mock() for _ in range(12)]
         result = judge.optimize(traces)
 
