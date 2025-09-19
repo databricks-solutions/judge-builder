@@ -75,15 +75,6 @@ export function TemplateVariableButtons({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">
-          Template Variables
-        </label>
-        <span className="text-xs text-muted-foreground">
-          Click to insert at cursor
-        </span>
-      </div>
-      
       <div className="flex flex-wrap gap-2">
         {templateVariableButtons.map(({ variable, label, color }) => (
           <Button
@@ -102,16 +93,10 @@ export function TemplateVariableButtons({
         ))}
       </div>
       
-      <div className="text-xs text-muted-foreground space-y-1">
-        <p>
-          Use template variables to reference data in your judge instructions. 
-          At least one variable is required.
-        </p>
-        <p>
-          Define expected output types: Specify if your judge should return pass/fail 
-          or use a 1-5 Likert scale for scoring.
-        </p>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Click on the variables above to reference data in your judge instructions. 
+        At least one variable is required.
+      </p>
     </div>
   )
 }

@@ -59,18 +59,16 @@ export function JudgeInstructionInput({
 
   return (
     <div className="space-y-4">
-      {/* Template Variable Buttons */}
-      <TemplateVariableButtons 
-        textareaRef={textareaRef}
-        onInsert={handleVariableInsert}
-        disabled={disabled}
-      />
-
       {/* Main Textarea */}
       <div className="space-y-2">
         <label className="block text-sm font-medium">
           Evaluation Instruction {required && <span className="text-red-500">*</span>}
         </label>
+        
+        {/* Output Types Guidance - Below title */}
+        <p className="text-xs text-muted-foreground">
+          <strong>Ensure you define your expected output types!</strong> For example, the judge should return pass or fail.
+        </p>
         
         <div className="relative">
           <textarea
@@ -132,6 +130,13 @@ export function JudgeInstructionInput({
         )}
 
       </div>
+
+      {/* Template Variable Buttons - Below textarea */}
+      <TemplateVariableButtons 
+        textareaRef={textareaRef}
+        onInsert={handleVariableInsert}
+        disabled={disabled}
+      />
     </div>
   )
 }
