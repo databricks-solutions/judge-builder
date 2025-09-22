@@ -43,6 +43,7 @@ class TestLabelingService(TestCase):
         # Mock MLflow labeling session
         mock_session = Mock()
         mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
         mock_session.url = 'https://databricks.com/labeling/session/123'
         mock_labeling.create_labeling_session.return_value = mock_session
 
@@ -90,6 +91,7 @@ class TestLabelingService(TestCase):
         mock_session = Mock()
         mock_session.mlflow_run_id = 'run123'
         mock_session.url = 'https://test.com/session'
+        mock_session.url = 'https://test.com/session'
         mock_labeling.create_labeling_session.return_value = mock_session
 
         request = CreateLabelingSessionRequest(trace_ids=['trace1'], sme_emails=['user@test.com'])
@@ -118,6 +120,7 @@ class TestLabelingService(TestCase):
 
         mock_session = Mock()
         mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
         mock_get_session.return_value = mock_session
 
         result = self.service.get_labeling_session('judge123')
@@ -189,6 +192,7 @@ class TestLabelingService(TestCase):
         """Test successful labeling session deletion."""
         mock_session = Mock()
         mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
         mock_get_session.return_value = mock_session
 
         result = self.service.delete_labeling_session('judge123')
@@ -218,6 +222,7 @@ class TestLabelingService(TestCase):
         # Mock labeling session
         mock_session = Mock()
         mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
         mock_get_session.return_value = mock_session
 
         # Mock MLflow traces
@@ -360,6 +365,7 @@ class TestLabelingService(TestCase):
 
         mock_session = Mock()
         mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
         mock_get_session.return_value = mock_session
 
         # Mock search results
@@ -418,6 +424,7 @@ class TestLabelingService(TestCase):
 
         mock_session = Mock()
         mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
         mock_session.url = 'https://databricks.com/labeling/123'
         mock_get_session.return_value = mock_session
 
@@ -516,6 +523,123 @@ class TestLabelingService(TestCase):
         # Should return (0, 0) on error
         self.assertEqual(total_examples, 0)
         self.assertEqual(labeled_examples, 0)
+
+    @patch('server.services.labeling_service.extract_categorical_options_from_instruction')
+    @patch('server.services.labeling_service.mlflow')
+    @patch('server.services.labeling_service.schemas')
+    @patch('server.services.labeling_service.labeling')
+    @patch('server.services.judge_service.judge_service')
+    def test_create_labeling_session_dynamic_schema_pass_fail(
+        self, mock_judge_service, mock_labeling, mock_schemas, mock_mlflow, mock_extract_options
+    ):
+        """Test labeling session creation with dynamic pass/fail schema."""
+        # Set up judge with pass/fail instruction
+        judge_with_pass_fail = JudgeResponse(
+            id='judge123',
+            name='Pass/Fail Judge',
+            instruction='Return pass if relevant, fail if not relevant.',
+            experiment_id='exp456',
+            version=1,
+        )
+        mock_judge_service.get_judge.return_value = judge_with_pass_fail
+
+        # Mock options extraction
+        mock_extract_options.return_value = ['Pass', 'Fail']
+
+        mock_session = Mock()
+        mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
+        mock_session.url = 'https://test.com/session'
+        mock_labeling.create_labeling_session.return_value = mock_session
+
+        request = CreateLabelingSessionRequest(trace_ids=['trace1'], sme_emails=['user@test.com'])
+
+        self.service.create_labeling_session('judge123', request)
+
+        # Verify options extraction was called with judge instruction
+        mock_extract_options.assert_called_once_with(judge_with_pass_fail.instruction)
+
+        # Verify categorical schema was used
+        schema_call = mock_schemas.create_label_schema.call_args
+        input_schema = schema_call.kwargs['input']
+        from mlflow.genai.label_schemas import InputCategorical
+        self.assertIsInstance(input_schema, InputCategorical)
+        self.assertEqual(input_schema.options, ['Pass', 'Fail'])
+
+    @patch('server.services.labeling_service.extract_categorical_options_from_instruction')
+    @patch('server.services.labeling_service.mlflow')
+    @patch('server.services.labeling_service.schemas')
+    @patch('server.services.labeling_service.labeling')
+    @patch('server.services.judge_service.judge_service')
+    def test_create_labeling_session_dynamic_schema_multi_option(
+        self, mock_judge_service, mock_labeling, mock_schemas, mock_mlflow, mock_extract_options
+    ):
+        """Test labeling session creation with multi-option categorical schema."""
+        # Set up judge with multi-option instruction
+        judge_with_multi = JudgeResponse(
+            id='judge123',
+            name='Rating Judge',
+            instruction='Rate as poor, fair, good, or excellent.',
+            experiment_id='exp456',
+            version=1,
+        )
+        mock_judge_service.get_judge.return_value = judge_with_multi
+
+        # Mock options extraction to return multi-categorical
+        mock_extract_options.return_value = ['Poor', 'Fair', 'Good', 'Excellent']
+
+        mock_session = Mock()
+        mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
+        mock_labeling.create_labeling_session.return_value = mock_session
+
+        request = CreateLabelingSessionRequest(trace_ids=['trace1'], sme_emails=['user@test.com'])
+
+        self.service.create_labeling_session('judge123', request)
+
+        # Verify options extraction was called
+        mock_extract_options.assert_called_once_with(judge_with_multi.instruction)
+
+        # Verify categorical schema was used with correct options
+        schema_call = mock_schemas.create_label_schema.call_args
+        input_schema = schema_call.kwargs['input']
+        from mlflow.genai.label_schemas import InputCategorical
+        self.assertIsInstance(input_schema, InputCategorical)
+        self.assertEqual(input_schema.options, ['Poor', 'Fair', 'Good', 'Excellent'])
+
+    @patch('server.services.labeling_service.extract_categorical_options_from_instruction')
+    @patch('server.services.labeling_service.mlflow')
+    @patch('server.services.labeling_service.schemas')
+    @patch('server.services.labeling_service.labeling')
+    @patch('server.services.judge_service.judge_service')
+    def test_create_labeling_session_schema_analysis_failure(
+        self, mock_judge_service, mock_labeling, mock_schemas, mock_mlflow, mock_extract_options
+    ):
+        """Test labeling session creation when schema analysis fails."""
+        mock_judge_service.get_judge.return_value = self.mock_judge_response
+
+        # Mock schema analysis failure
+        mock_extract_options.side_effect = Exception('Schema analysis failed')
+
+        mock_session = Mock()
+        mock_session.mlflow_run_id = 'run123'
+        mock_session.url = 'https://test.com/session'
+        mock_labeling.create_labeling_session.return_value = mock_session
+
+        request = CreateLabelingSessionRequest(trace_ids=['trace1'], sme_emails=['user@test.com'])
+
+        # Should not raise exception, should use fallback
+        result = self.service.create_labeling_session('judge123', request)
+
+        # Verify it still creates a session
+        self.assertIsInstance(result, CreateLabelingSessionResponse)
+
+        # Verify fallback schema was used (InputCategorical with Pass/Fail)
+        schema_call = mock_schemas.create_label_schema.call_args
+        input_schema = schema_call.kwargs['input']
+        from mlflow.genai.label_schemas import InputCategorical
+        self.assertIsInstance(input_schema, InputCategorical)
+        self.assertEqual(input_schema.options, ['Pass', 'Fail'])
 
 
 if __name__ == '__main__':

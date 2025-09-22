@@ -1137,11 +1137,25 @@ export default function JudgeDetailPage() {
                   <div className="grid grid-cols-3 gap-4">
                     <Card className="text-center">
                       <CardContent className="p-4">
-                        <div className="text-2xl font-bold text-green-600">
-                          {alignmentData.metrics.previous_agreement_count > 0 ? 
-                            `${((alignmentData.metrics.previous_agreement_count / alignmentData.metrics.total_samples) * 100).toFixed(1)}% → ${((alignmentData.metrics.new_agreement_count / alignmentData.metrics.total_samples) * 100).toFixed(1)}%` : 
-                            '0% → 0%'
-                          }
+                        <div className="text-2xl font-bold">
+                          {(() => {
+                            const prevRate = ((alignmentData.metrics.previous_agreement_count / alignmentData.metrics.total_samples) * 100);
+                            const newRate = ((alignmentData.metrics.new_agreement_count / alignmentData.metrics.total_samples) * 100);
+                            const diff = newRate - prevRate;
+                            const diffText = diff >= 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`;
+                            const diffColor = diff >= 0 ? 'text-green-600' : 'text-red-600';
+                            
+                            if (alignmentData.metrics.previous_agreement_count > 0) {
+                              return (
+                                <>
+                                  <span className="text-blue-600">{prevRate.toFixed(1)}% → {newRate.toFixed(1)}%</span>
+                                  <span className={diffColor}> ({diffText})</span>
+                                </>
+                              );
+                            } else {
+                              return <span className="text-blue-600">0% → 0% <span className="text-green-600">(+0.0%)</span></span>;
+                            }
+                          })()}
                         </div>
                         <div className="text-sm text-muted-foreground">Alignment</div>
                       </CardContent>
@@ -1154,8 +1168,21 @@ export default function JudgeDetailPage() {
                     </Card>
                     <Card className="text-center">
                       <CardContent className="p-4">
-                        <div className="text-2xl font-bold text-green-600">
-                          {alignmentData.metrics.previous_agreement_count} → {alignmentData.metrics.new_agreement_count}
+                        <div className="text-2xl font-bold">
+                          {(() => {
+                            const prev = alignmentData.metrics.previous_agreement_count;
+                            const current = alignmentData.metrics.new_agreement_count;
+                            const diff = current - prev;
+                            const diffText = diff >= 0 ? `+${diff}` : `${diff}`;
+                            const diffColor = diff >= 0 ? 'text-green-600' : 'text-red-600';
+                            
+                            return (
+                              <>
+                                <span className="text-blue-600">{prev} → {current}</span>
+                                <span className={diffColor}> ({diffText})</span>
+                              </>
+                            );
+                          })()}
                         </div>
                         <div className="text-sm text-muted-foreground">Alignments</div>
                       </CardContent>
@@ -1164,10 +1191,11 @@ export default function JudgeDetailPage() {
                 </>
               )}
 
-              {/* Confusion Matrix */}
-              {judge?.version && judge.version >= 2 && alignmentData && !alignmentLoading && (
+              {/* Confusion Matrix - Only for Binary Outcomes */}
+              {judge?.version && judge.version >= 2 && alignmentData && !alignmentLoading && alignmentData.metrics.schema_info?.is_binary && alignmentData.metrics.confusion_matrix_previous && alignmentData.metrics.confusion_matrix_new && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Confusion Matrix</h3>
+                  <p className="text-sm text-muted-foreground">Binary outcome analysis showing classification accuracy</p>
                   <div className="space-y-2">
                     <div className="flex gap-4">
                       <div className="flex-1 bg-green-50 border border-green-200 p-3 rounded-lg">
@@ -1220,6 +1248,7 @@ export default function JudgeDetailPage() {
                   </div>
                 </div>
               )}
+
 
               {/* Row-by-Row Comparison */}
               {judge?.version && judge.version >= 2 && alignmentData && alignmentData.comparisons && !alignmentLoading && (

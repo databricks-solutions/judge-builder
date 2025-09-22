@@ -10,6 +10,11 @@ from server.judges.instruction_judge import InstructionJudge
 from server.models import (
     JudgeCreateRequest,
     JudgeResponse,
+    SchemaInfo,
+)
+from server.utils.schema_analysis import (
+    extract_categorical_options_from_instruction,
+    is_binary_categorical_options,
 )
 
 from .base_service import BaseService
@@ -31,6 +36,21 @@ class JudgeService(BaseService):
 
     def _judge_to_response(self, judge: InstructionJudge) -> JudgeResponse:
         """Convert a CustomPromptJudge to JudgeResponse."""
+        # Perform schema analysis once and cache it
+        try:
+            options = extract_categorical_options_from_instruction(judge.user_instructions)
+            schema_info = SchemaInfo(
+                is_binary=is_binary_categorical_options(options),
+                options=options
+            )
+        except Exception as e:
+            logger.warning(f'Schema analysis failed for judge {judge.id}: {e}')
+            # Default to binary categorical for backward compatibility
+            schema_info = SchemaInfo(
+                is_binary=True,
+                options=['Pass', 'Fail']
+            )
+        
         return JudgeResponse(
             id=judge.id,
             name=judge.name,
@@ -38,6 +58,7 @@ class JudgeService(BaseService):
             experiment_id=judge.experiment_id,
             version=judge.version,
             labeling_run_id=judge.labeling_run_id,
+            schema_info=schema_info,
         )
 
     def _get_judge_experiments(self, force_refresh: bool = False):
