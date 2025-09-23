@@ -3,10 +3,10 @@
 import logging
 from typing import Dict, Optional
 
-import mlflow
-from mlflow.tracking import MlflowClient
-from mlflow.genai import evaluate, scorers
 import dspy
+import mlflow
+from mlflow.genai import evaluate, scorers
+from mlflow.tracking import MlflowClient
 
 from server.models import (
     AlignmentComparison,
@@ -19,6 +19,7 @@ from server.models import (
     SingleJudgeTestResponse,
     TraceRequest,
 )
+from server.utils import dspy_utils
 from server.utils.constants import ALIGNED_SAMPLES_COUNT
 from server.utils.naming_utils import create_scorer_name, sanitize_judge_name
 from server.utils.parsing_utils import (
@@ -26,7 +27,6 @@ from server.utils.parsing_utils import (
     get_human_feedback_from_trace,
     get_scorer_feedback_from_trace,
 )
-from server.utils import dspy_utils
 
 from .base_service import BaseService
 from .cache_service import cache_service
@@ -212,34 +212,34 @@ class AlignmentService(BaseService):
         # Get evaluation run IDs for both versions (cache will automatically search MLflow if needed)
         prev_run_id = cache_service.get_evaluation_run_id(judge_id, judge.version - 1, trace_ids, judge.experiment_id)
         curr_run_id = cache_service.get_evaluation_run_id(judge_id, judge.version, trace_ids, judge.experiment_id)
-        
+
         if not prev_run_id or not curr_run_id:
             raise ValueError('Evaluation runs not found. Please run alignment first.')
 
         # Check if we need to run missing evaluations
         missing_prev_count = 0
         missing_curr_count = 0
-        
+
         for example, human_feedback in examples_with_feedback:
             trace = cache_service.get_trace(example.trace_id)
             if not trace:
                 continue
-                
+
             prev_feedback = get_scorer_feedback_from_trace(judge.name, judge.version - 1, trace)
             curr_feedback = get_scorer_feedback_from_trace(judge.name, judge.version, trace)
-            
+
             if not prev_feedback:
                 missing_prev_count += 1
             if not curr_feedback:
                 missing_curr_count += 1
-        
+
         # If ALL traces are missing previous feedback, run previous version evaluation
         if missing_prev_count == len(examples_with_feedback):
             logger.info(f'All traces missing previous judge feedback (v{judge.version - 1}), running evaluation')
             self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
             cache_service.invalidate_traces(trace_ids)
-        
-        # If ALL traces are missing current feedback, run current version evaluation  
+
+        # If ALL traces are missing current feedback, run current version evaluation
         if missing_curr_count == len(examples_with_feedback):
             logger.info(f'All traces missing current judge feedback (v{judge.version}), running evaluation')
             self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
@@ -262,7 +262,7 @@ class AlignmentService(BaseService):
             if not prev_feedback:
                 logger.warning(f'Skipping trace {example.trace_id}: missing previous judge feedback (v{judge.version - 1})')
                 continue
-                
+
             if not curr_feedback:
                 logger.warning(f'Skipping trace {example.trace_id}: missing current judge feedback (v{judge.version})')
                 continue
@@ -271,11 +271,11 @@ class AlignmentService(BaseService):
             has_human_error = assessment_has_error(human_feedback)
             has_prev_error = assessment_has_error(prev_feedback)
             has_curr_error = assessment_has_error(curr_feedback)
-            
+
             if has_human_error or has_prev_error or has_curr_error:
                 logger.warning(f'Skipping trace {example.trace_id}: has errors (human={has_human_error}, prev={has_prev_error}, curr={has_curr_error})')
                 continue
-            
+
             human_labels.append(human_feedback.feedback.value)
             comparisons.append(AlignmentComparison(
                 trace_id=example.trace_id,
@@ -285,7 +285,7 @@ class AlignmentService(BaseService):
                 previous_judge_feedback=prev_feedback,
                 new_judge_feedback=curr_feedback
             ))
-        
+
         if not human_labels:
             raise ValueError('No valid examples with both human and judge feedback found')
 
@@ -329,13 +329,8 @@ class AlignmentService(BaseService):
         if not traces:
             raise ValueError('No traces found in labeling session')
 
-        # Check labeling progress to ensure we have enough examples for alignment
-        from server.judges.custom_prompt_judge import MIN_EXAMPLES_FOR_OPTIMIZATION
-        
+        # MLflow's alignment will handle minimum example requirements internally
         labeling_progress = labeling_service.get_labeling_progress(judge_id)
-        
-        if labeling_progress.labeled_examples < MIN_EXAMPLES_FOR_OPTIMIZATION:
-            raise ValueError(f'Insufficient labeled examples for alignment. Found {labeling_progress.labeled_examples} labeled examples, but need at least {MIN_EXAMPLES_FOR_OPTIMIZATION}. Please complete more labeling tasks before running alignment.')
 
         # Extract trace IDs for evaluation
         trace_ids = [trace.info.trace_id for trace in traces]
@@ -343,7 +338,7 @@ class AlignmentService(BaseService):
         # Step 1: Run evaluation on current judge version (v_i)
         logger.info(f'Running evaluation on judge {judge_id} version {current_judge.version}')
         self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
-        
+
         # Invalidate trace cache after evaluation to get fresh judge feedback
         logger.info(f'Invalidating trace cache for {len(trace_ids)} traces after evaluation')
         cache_service.invalidate_traces(trace_ids)
@@ -352,38 +347,37 @@ class AlignmentService(BaseService):
         fresh_traces = cache_service.get_traces(trace_ids)
         logger.info(f'Retrieved {len(fresh_traces)} fresh traces for optimization')
 
-        # Step 2: Run optimization on the judge
-        logger.info(f'Starting optimization for judge {judge_id}')
+        # Step 2: Run alignment on the judge using MLflow's native capability
+        logger.info(f'Starting alignment for judge {judge_id}')
         judge_instance = judge_service._judges[judge_id]
-        optimization_success = judge_instance.optimize(fresh_traces)
-        
-        # Check if optimization failed and fail early
-        if not optimization_success:
-            logger.error(f'Optimization failed for judge {judge_id}')
-            raise RuntimeError(f'Judge optimization failed. Please check the app logs for details.')
-        
-        # Step 3: Create new judge version (v_i+1) with optimized prompt
-        optimized_instructions = judge_instance.prompt_template.replace(
-            'Evaluation criteria: ', ''
-        ).split('<request>')[0].strip()
-        
-        logger.info(f'Creating new version for judge {judge_id} with optimized instructions: {optimized_instructions}')
-        new_judge = judge_service.create_new_version(judge_id, optimized_instructions)
+        alignment_success = judge_instance.optimize(fresh_traces)
+
+        # Check if alignment failed and fail early
+        if not alignment_success:
+            logger.error(f'Alignment failed for judge {judge_id}')
+            raise RuntimeError('Judge alignment failed. Please check the app logs for details.')
+
+        # Step 3: Create new judge version (v_i+1) with aligned instructions
+        # The judge instance now has the aligned MLflow judge with updated instructions
+        aligned_instructions = judge_instance.scorer_func.instructions
+
+        logger.info(f'Creating new version for judge {judge_id} with aligned instructions')
+        new_judge = judge_service.create_new_version(judge_id, aligned_instructions)
 
         # Step 4: Run evaluation on new judge version (v_i+1)
         logger.info(f'Running evaluation on new judge version {new_judge.version}')
         new_eval_result = self.evaluate_judge(new_judge.id, TraceRequest(trace_ids=trace_ids))
-        
+
         # Invalidate trace cache after second evaluation to get fresh judge feedback
         logger.info(f'Invalidating trace cache for {len(trace_ids)} traces after new version evaluation')
         cache_service.invalidate_traces(trace_ids)
 
         # Step 5: Use labeling service count for aligned samples count
         from server.services.labeling_service import labeling_service
-        
+
         labeling_progress = labeling_service.get_labeling_progress(judge_id)
         aligned_samples_count = labeling_progress.labeled_examples
-        
+
         logger.info(f'Found {aligned_samples_count} traces with valid human feedback out of {len(traces)} total traces')
 
         # Step 6: Tag the existing labeling run with alignment info
@@ -394,7 +388,7 @@ class AlignmentService(BaseService):
         return AlignmentResponse(
             judge_id=new_judge.id,
             success=True,
-            message=f'Successfully optimized judge from version {current_judge.version} to {new_judge.version} using {aligned_samples_count} aligned samples',
+            message=f'Successfully aligned judge from version {current_judge.version} to {new_judge.version} using {aligned_samples_count} aligned samples',
             new_version=new_judge.version,
             improvement_metrics=None,
         )

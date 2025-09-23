@@ -30,7 +30,7 @@ def _is_not_found_error(error_message: str) -> bool:
     error_msg = str(error_message).lower()
     not_found_indicators = [
         'not found',
-        'does not exist', 
+        'does not exist',
         'not exist',
         'no registered scorer',
         'no such',
@@ -71,7 +71,7 @@ class JudgeBuilderService(BaseService):
             judge = self.judge_service._judges.get(judge_response.id)
             if not judge:
                 raise ValueError(f'Judge {judge_response.id} not found after creation')
-            
+
             try:
                 judge.register_scorer()
                 logger.info(f'Successfully registered scorer for judge {judge_response.name}')
@@ -233,7 +233,7 @@ class JudgeBuilderService(BaseService):
             except Exception as e:
                 warning_msg = f'Failed to delete MLflow scorer: {e}'
                 logger.warning(warning_msg)
-                if "No registered scorer" not in str(e):
+                if 'No registered scorer' not in str(e):
                     deletion_warnings.append(warning_msg)
 
             # 4. Delete label schema

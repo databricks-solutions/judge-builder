@@ -1,6 +1,6 @@
 """Data models for Judge Builder API."""
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from mlflow.entities import Feedback
 from pydantic import BaseModel, Field

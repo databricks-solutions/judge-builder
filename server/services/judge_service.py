@@ -2,18 +2,15 @@
 
 import json
 import logging
-import os
 from typing import Dict, List, Optional
 
 import mlflow
 
-from server.judges.custom_prompt_judge import CustomPromptJudge
+from server.judges.instruction_judge import InstructionJudge
 from server.models import (
     JudgeCreateRequest,
     JudgeResponse,
 )
-from server.optimizers.custom_prompt_optimizer import CustomPromptOptimizer
-from server.utils.constants import DEFAULT_JUDGE_OPTIMIZER
 
 from .base_service import BaseService
 
@@ -26,13 +23,13 @@ class JudgeService(BaseService):
     def __init__(self):
         super().__init__()
         # In-memory storage for judges (keyed by judge_id)
-        self._judges: Dict[str, CustomPromptJudge] = {}
+        self._judges: Dict[str, InstructionJudge] = {}
         # Version history storage (keyed by judge_id, then version)
-        self._versions: Dict[str, Dict[int, CustomPromptJudge]] = {}
+        self._versions: Dict[str, Dict[int, InstructionJudge]] = {}
         # Cache for judge_builder experiments to avoid repeated searches
         self._judge_experiments_cache = None
 
-    def _judge_to_response(self, judge: CustomPromptJudge) -> JudgeResponse:
+    def _judge_to_response(self, judge: InstructionJudge) -> JudgeResponse:
         """Convert a CustomPromptJudge to JudgeResponse."""
         return JudgeResponse(
             id=judge.id,
@@ -54,20 +51,15 @@ class JudgeService(BaseService):
         return self._judge_experiments_cache
 
     # Core CRUD operations
-    def create_judge(self, request: JudgeCreateRequest, optimizer: Optional[CustomPromptOptimizer] = None) -> JudgeResponse:
+    def create_judge(self, request: JudgeCreateRequest) -> JudgeResponse:
         """Create a new judge."""
         logger.info(f'Creating judge: {request.name}')
 
-        if optimizer is None:
-            optimizer_algorithm = os.getenv('JUDGE_OPTIMIZER', DEFAULT_JUDGE_OPTIMIZER)
-            optimizer = CustomPromptOptimizer(optimizer_algorithm=optimizer_algorithm)
-
-        # Create the judge instance
-        judge = CustomPromptJudge(
+        # Create the judge instance using InstructionJudge
+        judge = InstructionJudge(
             name=request.name,
             user_instructions=request.instruction,
             experiment_id=request.experiment_id,
-            optimizer=optimizer,
         )
 
         # Store in memory
@@ -131,24 +123,20 @@ class JudgeService(BaseService):
         new_version = current_judge.version + 1
 
         # Create new judge instance with aligned instructions
-        new_judge = CustomPromptJudge(
+        new_judge = InstructionJudge(
             name=current_judge.name,
             user_instructions=current_judge.user_instructions,  # Keep original user instructions
             experiment_id=current_judge.experiment_id,
-            optimizer=current_judge.optimizer,
         )
 
         # Override the auto-generated values
         new_judge.id = judge_id  # Keep same ID
         new_judge.version = new_version
-        new_judge.system_instructions = aligned_instruction  # Update system instructions
         new_judge.labeling_run_id = current_judge.labeling_run_id  # Carry over labeling run ID
 
-        # Recreate the scorer with new instructions
-        new_judge.prompt_template = new_judge.prompt_template.replace(
-            current_judge.system_instructions, aligned_instruction
-        )
-        new_judge.scorer_func = new_judge._create_scorer()
+        # Update the MLflow judge with aligned instructions
+        # Note: The actual alignment happens in the alignment service, this is just for version tracking
+        # The aligned instruction parameter should contain the optimized instructions
 
         # Update storage
         self._judges[judge_id] = new_judge
@@ -156,7 +144,7 @@ class JudgeService(BaseService):
 
         # Update experiment metadata with new version and optimized instructions
         self._update_judge_version_in_metadata(judge_id, new_version, new_judge.experiment_id, aligned_instruction)
-        
+
         # Also update labeling_run_id in metadata if it exists
         if current_judge.labeling_run_id:
             self._update_judge_metadata(judge_id, new_judge.experiment_id, {'labeling_run_id': current_judge.labeling_run_id})
@@ -171,7 +159,7 @@ class JudgeService(BaseService):
         return self._judge_to_response(new_judge)
 
 
-    def _get_or_recreate_judge(self, judge_id: str) -> Optional[CustomPromptJudge]:
+    def _get_or_recreate_judge(self, judge_id: str) -> Optional[InstructionJudge]:
         """Get judge from cache or recreate from experiment metadata."""
         judge = self._judges.get(judge_id)
         if judge:
@@ -189,13 +177,10 @@ class JudgeService(BaseService):
                 metadata = judges_metadata[judge_id]
 
                 # Recreate judge from metadata
-                optimizer_algorithm = os.getenv('JUDGE_OPTIMIZER', DEFAULT_JUDGE_OPTIMIZER)
-                optimizer = CustomPromptOptimizer(optimizer_algorithm=optimizer_algorithm)
-                judge = CustomPromptJudge(
+                judge = InstructionJudge(
                     name=metadata['name'],
                     user_instructions=metadata['instruction'],  # Keep original for display
                     experiment_id=experiment.experiment_id,
-                    optimizer=optimizer,
                 )
 
                 # Override auto-generated values with stored ones
@@ -206,15 +191,9 @@ class JudgeService(BaseService):
                 if 'labeling_run_id' in metadata and metadata['labeling_run_id']:
                     judge.labeling_run_id = metadata['labeling_run_id']
 
-                # Use optimized instructions if available, otherwise use original
-                if 'optimized_instructions' in metadata and metadata['optimized_instructions']:
-                    judge.system_instructions = metadata['optimized_instructions']
-                    # Update the prompt template with optimized instructions
-                    judge.prompt_template = judge.prompt_template.replace(
-                        judge.user_instructions, metadata['optimized_instructions']
-                    )
-                    # Recreate scorer with optimized instructions
-                    judge.scorer_func = judge._create_scorer()
+                # For InstructionJudge, we don't need to manually handle optimized instructions
+                # The MLflow judge handles this internally
+                # TODO: We may need to recreate the judge with optimized instructions if needed
 
                 # Cache the recreated judge
                 self._judges[judge_id] = judge
@@ -278,10 +257,10 @@ class JudgeService(BaseService):
             for version, version_judge in self._versions.get(judge_id, {}).items():
                 if hasattr(version_judge, 'labeling_run_id'):
                     version_judge.labeling_run_id = labeling_run_id
-            
+
             # Update experiment metadata with labeling_run_id
             self._update_judge_metadata(judge_id, judge.experiment_id, {'labeling_run_id': labeling_run_id})
-            
+
             logger.info(f'Updated labeling run ID for judge {judge_id}: {labeling_run_id}')
         else:
             logger.warning(f'Judge {judge_id} not found when trying to update labeling run ID')

@@ -56,9 +56,9 @@ async def lifespan(app: FastAPI):
     # Startup
     from server.services.judge_service import judge_service
     await judge_service.load_all_judges_on_startup()
-    
+
     yield
-    
+
     # Shutdown (if needed in the future)
     pass
 
@@ -92,7 +92,7 @@ async def health():
 if os.path.exists('client/build'):
     # First, mount static assets (CSS, JS, images, etc.)
     app.mount('/assets', StaticFiles(directory='client/build/assets'), name='assets')
-    
+
     # Handle client-side routing - serve index.html for all non-API routes
     @app.get('/{full_path:path}')
     async def serve_spa(request: Request, full_path: str):
@@ -100,11 +100,11 @@ if os.path.exists('client/build'):
         # If it's an API route, let it pass through (this shouldn't happen due to mount order)
         if full_path.startswith('api/'):
             return None
-            
+
         # Check if it's a request for a specific static file
         static_file_path = Path(f'client/build/{full_path}')
         if static_file_path.exists() and static_file_path.is_file():
             return FileResponse(static_file_path)
-            
+
         # For all other routes (client-side routes), serve index.html
         return FileResponse('client/build/index.html')

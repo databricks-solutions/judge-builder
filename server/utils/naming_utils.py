@@ -104,4 +104,4 @@ def create_scorer_name(judge_name: str, version: int) -> str:
         Formatted scorer name for MLflow registration
     """
     sanitized_name = sanitize_judge_name(judge_name)
-    return f'v{version}_custom_prompt_judge_{sanitized_name}'
+    return f'v{version}_instruction_judge_{sanitized_name}'
