@@ -67,7 +67,7 @@ export function JudgeInstructionInput({
         
         {/* Output Types Guidance - Below title */}
         <p className="text-xs text-muted-foreground">
-          <strong>Ensure you define your expected output types!</strong> For example, the judge should return pass or fail.
+          <strong>Ensure you define your expected output types!</strong> For example, "return pass or fail", or "return good, bad, or not applicable".
         </p>
         
         <div className="relative">
