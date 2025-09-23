@@ -1,10 +1,13 @@
 """Base service class with shared authentication and MLflow setup."""
 
 import os
+import logging
 
 import mlflow
 from dotenv import load_dotenv
 from mlflow.tracking import MlflowClient
+
+logger = logging.getLogger(__name__)
 
 # Module-level shared client
 _shared_mlflow_client = None
@@ -37,7 +40,8 @@ def _validate_auth():
     has_oauth_auth = databricks_host and databricks_client_id and databricks_client_secret
 
     if not (has_token_auth or has_oauth_auth):
-        raise ValueError(
+        # Don't fail here, just surface a potential issue
+        logger.error(
             'Databricks authentication required: Set DATABRICKS_HOST and '
             '(DATABRICKS_TOKEN or DATABRICKS_CLIENT_ID+DATABRICKS_CLIENT_SECRET)'
         )

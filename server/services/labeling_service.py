@@ -17,6 +17,7 @@ from server.models import (
 )
 from server.utils.constants import ALIGNED_SAMPLES_COUNT
 from server.utils.naming_utils import create_session_name, get_short_id, sanitize_judge_name
+from server.utils.schema_analysis import extract_categorical_options_from_instruction  # For fallback only
 
 from .base_service import BaseService
 
@@ -43,13 +44,27 @@ class LabelingService(BaseService):
         instruction_text = f"""Please review the conversation and evaluate whether it satisfies the judge's instruction as follows:
         {judge_response.instruction}"""
 
+        # Use cached schema information from judge, with fallback to analysis if not available
+        if judge_response.schema_info:
+            schema_input = schemas.InputCategorical(options=judge_response.schema_info.options)
+            logger.info(f'Using cached schema for judge {judge_response.name}: {len(judge_response.schema_info.options)} options')
+        else:
+            # Fallback: extract options from instruction (backward compatibility)
+            try:
+                options = extract_categorical_options_from_instruction(judge_response.instruction)
+                schema_input = schemas.InputCategorical(options=options)
+                logger.info(f'Generated schema for judge {judge_response.name}: {len(options)} options')
+            except Exception as e:
+                logger.warning(f'Schema analysis failed for judge {judge_response.name}: {e}, using pass/fail fallback')
+                schema_input = schemas.InputCategorical(options=['Pass', 'Fail'])
+
         schema_name = sanitize_judge_name(judge_response.name)
         schemas.create_label_schema(
             name=schema_name,
             type='feedback',
             title=f'Judge Example Labeling: {judge_response.name}',
             instruction=instruction_text,
-            input=schemas.InputCategorical(options=['Pass', 'Fail']),
+            input=schema_input,
             enable_comment=True,
             overwrite=True,
         )

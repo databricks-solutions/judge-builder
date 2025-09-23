@@ -15,6 +15,7 @@ from server.models import (
     ConfusionMatrix,
     EvaluationResult,
     JudgeResponse,
+    SchemaInfo,
     SingleJudgeTestRequest,
     SingleJudgeTestResponse,
     TraceRequest,
@@ -26,6 +27,10 @@ from server.utils.parsing_utils import (
     assessment_has_error,
     get_human_feedback_from_trace,
     get_scorer_feedback_from_trace,
+)
+from server.utils.schema_analysis import (
+    extract_categorical_options_from_instruction,
+    is_binary_categorical_options,
 )
 
 from .base_service import BaseService
@@ -293,12 +298,44 @@ class AlignmentService(BaseService):
         prev_judge_labels = [comp.previous_judge_feedback.feedback.value for comp in comparisons]
         curr_judge_labels = [comp.new_judge_feedback.feedback.value for comp in comparisons]
 
+        # Use cached schema information from judge
+        if judge.schema_info:
+            schema_info = judge.schema_info
+            logger.info(f'Using cached schema for judge {judge_id}: binary={schema_info.is_binary}')
+        else:
+            # Fallback: analyze judge schema (backward compatibility)
+            logger.warning(f'No cached schema info for judge {judge_id}, analyzing instruction')
+            try:
+                options = extract_categorical_options_from_instruction(judge.instruction)
+                schema_info = SchemaInfo(
+                    is_binary=is_binary_categorical_options(options),
+                    options=options
+                )
+            except Exception as e:
+                logger.warning(f'Schema analysis failed for judge {judge_id}: {e}')
+                # Default to binary categorical for backward compatibility
+                schema_info = SchemaInfo(
+                    is_binary=True,
+                    options=['Pass', 'Fail']
+                )
+
+        # Only calculate confusion matrices for binary categorical outcomes
+        confusion_matrix_prev = None
+        confusion_matrix_new = None
+        if schema_info.is_binary:
+            try:
+                confusion_matrix_prev = self.calculate_confusion_matrix(human_labels, prev_judge_labels)
+                confusion_matrix_new = self.calculate_confusion_matrix(human_labels, curr_judge_labels)
+            except Exception as e:
+                logger.warning(f'Confusion matrix calculation failed: {e}')
+
         metrics = AlignmentMetrics(
             total_samples=len(human_labels),
             previous_agreement_count=sum(1 for h, p in zip(human_labels, prev_judge_labels) if h.lower() == p.lower()),
             new_agreement_count=sum(1 for h, c in zip(human_labels, curr_judge_labels) if h.lower() == c.lower()),
-            confusion_matrix_previous=self.calculate_confusion_matrix(human_labels, prev_judge_labels),
-            confusion_matrix_new=self.calculate_confusion_matrix(human_labels, curr_judge_labels)
+            schema_info=schema_info,
+            confusion_matrix_previous=confusion_matrix_prev,
+            confusion_matrix_new=confusion_matrix_new
         )
 
         return {'metrics': metrics, 'comparisons': comparisons}

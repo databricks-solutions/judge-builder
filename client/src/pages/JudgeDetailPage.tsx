@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, AlertTriangle } from "lucide-react"
+import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, AlertTriangle, Check, X } from "lucide-react"
 import { LoadingDots } from "@/components/ui/loading-dots"
 import { useToast } from "@/contexts/ToastContext"
 
@@ -46,7 +46,7 @@ export default function JudgeDetailPage() {
 
   const [expandedExamples, setExpandedExamples] = useState<Set<string>>(new Set())
   const [expandedComparisons, setExpandedComparisons] = useState<Set<string>>(new Set())
-  const [comparisonFilter, setComparisonFilter] = useState<'all' | 'disagreements'>('all')
+  const [comparisonFilter, setComparisonFilter] = useState<'all' | 'disagreements' | 'version_changes'>('all')
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [addExamplesModalOpen, setAddExamplesModalOpen] = useState(false)
   const [runIdFilter, setRunIdFilter] = useState("")
@@ -1137,11 +1137,19 @@ export default function JudgeDetailPage() {
                   <div className="grid grid-cols-3 gap-4">
                     <Card className="text-center">
                       <CardContent className="p-4">
-                        <div className="text-2xl font-bold text-green-600">
-                          {alignmentData.metrics.previous_agreement_count > 0 ? 
-                            `${((alignmentData.metrics.previous_agreement_count / alignmentData.metrics.total_samples) * 100).toFixed(1)}% → ${((alignmentData.metrics.new_agreement_count / alignmentData.metrics.total_samples) * 100).toFixed(1)}%` : 
-                            '0% → 0%'
-                          }
+                        <div className="text-2xl font-bold">
+                          {(() => {
+                            const prevRate = ((alignmentData.metrics.previous_agreement_count / alignmentData.metrics.total_samples) * 100);
+                            const newRate = ((alignmentData.metrics.new_agreement_count / alignmentData.metrics.total_samples) * 100);
+                            
+                            if (alignmentData.metrics.previous_agreement_count > 0) {
+                              return (
+                                <span className="text-blue-600">{prevRate.toFixed(1)}% → {newRate.toFixed(1)}%</span>
+                              );
+                            } else {
+                              return <span className="text-blue-600">0% → 0%</span>;
+                            }
+                          })()}
                         </div>
                         <div className="text-sm text-muted-foreground">Alignment</div>
                       </CardContent>
@@ -1149,25 +1157,48 @@ export default function JudgeDetailPage() {
                     <Card className="text-center">
                       <CardContent className="p-4">
                         <div className="text-3xl font-bold text-blue-600">{alignmentData.metrics.total_samples}</div>
-                        <div className="text-sm text-muted-foreground">Total Comparisons</div>
+                        <div className="text-sm text-muted-foreground">Total Examples</div>
                       </CardContent>
                     </Card>
-                    <Card className="text-center">
+                    <Card className={`text-center ${(() => {
+                      const prev = alignmentData.metrics.previous_agreement_count;
+                      const current = alignmentData.metrics.new_agreement_count;
+                      const diff = current - prev;
+                      if (diff > 0) return 'bg-green-50 border-green-200';
+                      if (diff < 0) return 'bg-red-50 border-red-200';
+                      return 'bg-gray-50 border-gray-200';
+                    })()}`}>
                       <CardContent className="p-4">
-                        <div className="text-2xl font-bold text-green-600">
-                          {alignmentData.metrics.previous_agreement_count} → {alignmentData.metrics.new_agreement_count}
+                        <div className="text-2xl font-bold">
+                          {(() => {
+                            const prev = alignmentData.metrics.previous_agreement_count;
+                            const current = alignmentData.metrics.new_agreement_count;
+                            const diff = current - prev;
+                            const prevRate = ((prev / alignmentData.metrics.total_samples) * 100);
+                            const newRate = ((current / alignmentData.metrics.total_samples) * 100);
+                            const rateDiff = newRate - prevRate;
+                            
+                            const diffText = diff >= 0 ? `+${diff}` : `${diff}`;
+                            const rateDiffText = rateDiff >= 0 ? `+${rateDiff.toFixed(1)}%` : `${rateDiff.toFixed(1)}%`;
+                            const textColor = diff >= 0 ? 'text-green-600' : 'text-red-600';
+                            
+                            return (
+                              <div className={textColor}>{diffText} ({rateDiffText})</div>
+                            );
+                          })()}
                         </div>
-                        <div className="text-sm text-muted-foreground">Alignments</div>
+                        <div className="text-sm text-muted-foreground">Alignment Delta</div>
                       </CardContent>
                     </Card>
                   </div>
                 </>
               )}
 
-              {/* Confusion Matrix */}
-              {judge?.version && judge.version >= 2 && alignmentData && !alignmentLoading && (
+              {/* Confusion Matrix - Only for Binary Outcomes */}
+              {judge?.version && judge.version >= 2 && alignmentData && !alignmentLoading && alignmentData.metrics.schema_info?.is_binary && alignmentData.metrics.confusion_matrix_previous && alignmentData.metrics.confusion_matrix_new && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Confusion Matrix</h3>
+                  <p className="text-sm text-muted-foreground">Binary outcome analysis showing classification accuracy</p>
                   <div className="space-y-2">
                     <div className="flex gap-4">
                       <div className="flex-1 bg-green-50 border border-green-200 p-3 rounded-lg">
@@ -1221,6 +1252,7 @@ export default function JudgeDetailPage() {
                 </div>
               )}
 
+
               {/* Row-by-Row Comparison */}
               {judge?.version && judge.version >= 2 && alignmentData && alignmentData.comparisons && !alignmentLoading && (
                 <div className="space-y-4">
@@ -1238,6 +1270,9 @@ export default function JudgeDetailPage() {
                             const filteredComparisons = alignmentData.comparisons.filter((comparison: any) => {
                               if (comparisonFilter === 'disagreements') {
                                 return comparison.human_feedback?.feedback?.value?.toLowerCase() !== comparison.new_judge_feedback?.feedback?.value?.toLowerCase()
+                              }
+                              if (comparisonFilter === 'version_changes') {
+                                return comparison.previous_judge_feedback?.feedback?.value?.toLowerCase() !== comparison.new_judge_feedback?.feedback?.value?.toLowerCase()
                               }
                               return true
                             })
@@ -1260,11 +1295,12 @@ export default function JudgeDetailPage() {
                         <label className="text-sm font-medium">Filter:</label>
                         <select 
                           value={comparisonFilter}
-                          onChange={(e) => setComparisonFilter(e.target.value as 'all' | 'disagreements')}
+                          onChange={(e) => setComparisonFilter(e.target.value as 'all' | 'disagreements' | 'version_changes')}
                           className="px-3 py-1 border border-gray-300 rounded-md text-sm bg-white"
                         >
                           <option value="all">All ({alignmentData.comparisons.length})</option>
                           <option value="disagreements">Disagreements ({alignmentData.comparisons.filter((c: any) => c.human_feedback?.feedback?.value?.toLowerCase() !== c.new_judge_feedback?.feedback?.value?.toLowerCase()).length})</option>
+                          <option value="version_changes">Version Disagreements ({alignmentData.comparisons.filter((c: any) => c.previous_judge_feedback?.feedback?.value?.toLowerCase() !== c.new_judge_feedback?.feedback?.value?.toLowerCase()).length})</option>
                         </select>
                       </div>
                     </div>
@@ -1274,6 +1310,9 @@ export default function JudgeDetailPage() {
                         .filter((comparison: any) => {
                           if (comparisonFilter === 'disagreements') {
                             return comparison.human_feedback?.feedback?.value?.toLowerCase() !== comparison.new_judge_feedback?.feedback?.value?.toLowerCase()
+                          }
+                          if (comparisonFilter === 'version_changes') {
+                            return comparison.previous_judge_feedback?.feedback?.value?.toLowerCase() !== comparison.new_judge_feedback?.feedback?.value?.toLowerCase()
                           }
                           return true
                         })
@@ -1304,13 +1343,26 @@ export default function JudgeDetailPage() {
                                 </div>
                                 <span className="text-sm flex-1">{comparison.request}</span>
                                 
-                                {/* Rating Bubbles */}
+                                {/* Version Agreement Indicators */}
                                 <div className="flex items-center gap-2">
-                                  <div className={`px-2 py-1 rounded text-xs font-medium ${humanRating === "pass" ? "bg-green-500 text-white" : "bg-red-100 text-red-800"}`}>
-                                    Human
+                                  {/* Previous Judge Version Agreement */}
+                                  <div className={`px-2 py-1 rounded text-xs font-medium flex items-center ${previousJudgeRating === humanRating ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                    {previousJudgeRating === humanRating ? (
+                                      <Check className="w-3 h-3" />
+                                    ) : (
+                                      <X className="w-3 h-3" />
+                                    )}
                                   </div>
-                                  <div className={`px-2 py-1 rounded text-xs font-medium ${newJudgeRating === "pass" ? "bg-green-500 text-white" : "bg-red-100 text-red-800"}`}>
-                                    Judge
+                                  
+                                  <ArrowRight className="w-3 h-3 text-gray-400" />
+                                  
+                                  {/* New Judge Version Agreement */}
+                                  <div className={`px-2 py-1 rounded text-xs font-medium flex items-center ${newJudgeRating === humanRating ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                    {newJudgeRating === humanRating ? (
+                                      <Check className="w-3 h-3" />
+                                    ) : (
+                                      <X className="w-3 h-3" />
+                                    )}
                                   </div>
                                 </div>
                                 

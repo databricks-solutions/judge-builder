@@ -6,6 +6,13 @@ from mlflow.entities import Feedback
 from pydantic import BaseModel, Field
 
 
+class SchemaInfo(BaseModel):
+    """Information about the labeling schema options."""
+    
+    is_binary: bool = Field(..., description='Whether the schema represents binary outcomes')
+    options: List[str] = Field(..., description='Possible output values for this schema')
+
+
 class JudgeCreateRequest(BaseModel):
     """Request model for creating a new judge."""
 
@@ -28,6 +35,7 @@ class JudgeResponse(BaseModel):
     experiment_id: str = Field(..., description='MLflow experiment ID')
     version: int = Field(default=1, description='Judge version number')
     labeling_run_id: Optional[str] = Field(None, description='MLflow run ID for labeling session')
+    schema_info: Optional[SchemaInfo] = Field(None, description='Cached schema analysis for consistent use')
     # Note: system_instruction (enhanced/aligned version) is stored internally but not exposed to user
 
 
@@ -182,10 +190,13 @@ class AlignmentMetrics(BaseModel):
     total_samples: int = Field(..., description='Total number of samples')
     previous_agreement_count: int = Field(..., description='Previous version agreement count')
     new_agreement_count: int = Field(..., description='New version agreement count')
-    confusion_matrix_previous: ConfusionMatrix = Field(
-        ..., description='Previous version confusion matrix'
+    schema_info: SchemaInfo = Field(..., description='Information about the labeling schema')
+    confusion_matrix_previous: Optional[ConfusionMatrix] = Field(
+        None, description='Previous version confusion matrix (only for binary outcomes)'
     )
-    confusion_matrix_new: ConfusionMatrix = Field(..., description='New version confusion matrix')
+    confusion_matrix_new: Optional[ConfusionMatrix] = Field(
+        None, description='New version confusion matrix (only for binary outcomes)'
+    )
 
     @property
     def previous_agreement_rate(self) -> float:
