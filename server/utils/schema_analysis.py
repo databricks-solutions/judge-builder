@@ -2,6 +2,7 @@
 
 import json
 import logging
+from functools import lru_cache
 from typing import List
 
 from databricks.rag_eval import context
@@ -32,6 +33,7 @@ Guidelines:
 Return only valid JSON."""
 
 
+@lru_cache(maxsize=128)
 def extract_categorical_options_from_instruction(instruction: str) -> List[str]:
     """Extract categorical options from judge instruction using LLM analysis.
     
