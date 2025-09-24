@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.2.1 (2025-09-24)
+
+### Improvements
+
+- Cache results of schema analysis to get potential output types
+
 ## 0.2.0 (2025-09-23)
 
 ### Features
