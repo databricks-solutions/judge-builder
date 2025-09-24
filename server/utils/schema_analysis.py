@@ -5,7 +5,8 @@ import logging
 from functools import lru_cache
 from typing import List
 
-from databricks.rag_eval import context
+from databricks.rag_eval import context, env_vars
+from server.utils.constants import VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ Return only valid JSON."""
 
 
 @lru_cache(maxsize=128)
+@context.eval_context
 def extract_categorical_options_from_instruction(instruction: str) -> List[str]:
     """Extract categorical options from judge instruction using LLM analysis.
     
@@ -45,6 +47,7 @@ def extract_categorical_options_from_instruction(instruction: str) -> List[str]:
         Falls back to ["Pass", "Fail"] if analysis fails.
     """
     try:
+        env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(f'judge-builder-v{VERSION}')
         managed_rag_client = context.get_context().build_managed_rag_client()
         
         user_prompt = f"""Analyze this judge instruction and extract the categorical options. Provide your analysis as JSON. Do not use any markdown. 
