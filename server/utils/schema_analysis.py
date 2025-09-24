@@ -2,9 +2,11 @@
 
 import json
 import logging
+from functools import lru_cache
 from typing import List
 
-from databricks.rag_eval import context
+from databricks.rag_eval import context, env_vars
+from server.utils.constants import VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,42 @@ Guidelines:
 Return only valid JSON."""
 
 
+@lru_cache(maxsize=128)
+@context.eval_context
+def _extract_categorical_options_from_instruction(instruction: str) -> List[str]:
+    env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(f'judge-builder-v{VERSION}')
+    managed_rag_client = context.get_context().build_managed_rag_client()
+    
+    user_prompt = f"""Analyze this judge instruction and extract the categorical options. Provide your analysis as JSON. Do not use any markdown. 
+    <instruction>{instruction}</instruction>"""
+
+    response = managed_rag_client.get_chat_completions_result(
+        user_prompt=user_prompt, 
+        system_prompt=SCHEMA_ANALYSIS_SYSTEM_PROMPT
+    )
+    
+    if not response.output:
+        logger.warning("No output from LLM, falling back to pass/fail")
+        return ["Pass", "Fail"]
+        
+    # Parse LLM response
+    try:
+        analysis = json.loads(response.output.strip())
+        options = analysis.get("options", ["Pass", "Fail"])
+        
+        # Validate options
+        if not isinstance(options, list) or len(options) < 2:
+            logger.warning(f"Invalid options: {options}, using pass/fail")
+            return ["Pass", "Fail"]
+            
+        logger.info(f"LLM extracted options: {options}")
+        return options
+        
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse LLM JSON response: {e}")
+        return ["Pass", "Fail"]
+
+
 def extract_categorical_options_from_instruction(instruction: str) -> List[str]:
     """Extract categorical options from judge instruction using LLM analysis.
     
@@ -43,37 +81,7 @@ def extract_categorical_options_from_instruction(instruction: str) -> List[str]:
         Falls back to ["Pass", "Fail"] if analysis fails.
     """
     try:
-        managed_rag_client = context.get_context().build_managed_rag_client()
-        
-        user_prompt = f"""Analyze this judge instruction and extract the categorical options. Provide your analysis as JSON. Do not use any markdown. 
-        <instruction>{instruction}</instruction>"""
-
-        response = managed_rag_client.get_chat_completions_result(
-            user_prompt=user_prompt, 
-            system_prompt=SCHEMA_ANALYSIS_SYSTEM_PROMPT
-        )
-        
-        if not response.output:
-            logger.warning("No output from LLM, falling back to pass/fail")
-            return ["Pass", "Fail"]
-            
-        # Parse LLM response
-        try:
-            analysis = json.loads(response.output.strip())
-            options = analysis.get("options", ["Pass", "Fail"])
-            
-            # Validate options
-            if not isinstance(options, list) or len(options) < 2:
-                logger.warning(f"Invalid options: {options}, using pass/fail")
-                return ["Pass", "Fail"]
-                
-            logger.info(f"LLM extracted options: {options}")
-            return options
-            
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse LLM JSON response: {e}")
-            return ["Pass", "Fail"]
-        
+        return _extract_categorical_options_from_instruction(instruction)
     except Exception as e:
         logger.error(f"LLM analysis failed: {e}")
         return ["Pass", "Fail"]
