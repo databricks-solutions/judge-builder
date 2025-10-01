@@ -59,6 +59,7 @@ class JudgeService(BaseService):
             version=judge.version,
             labeling_run_id=judge.labeling_run_id,
             schema_info=schema_info,
+            alignment_model_config=getattr(judge, 'alignment_model_config', None),
         )
 
     def _get_judge_experiments(self, force_refresh: bool = False):
@@ -83,6 +84,11 @@ class JudgeService(BaseService):
             experiment_id=request.experiment_id,
         )
 
+        # Store alignment model config if provided
+        if request.alignment_model_config:
+            judge.alignment_model_config = request.alignment_model_config
+            logger.info(f'Judge created with alignment model config: {request.alignment_model_config.model_type}')
+
         # Store in memory
         self._judges[judge.id] = judge
 
@@ -90,6 +96,14 @@ class JudgeService(BaseService):
         if judge.id not in self._versions:
             self._versions[judge.id] = {}
         self._versions[judge.id][judge.version] = judge
+
+        # Store alignment model config in metadata if provided
+        if request.alignment_model_config:
+            self._update_judge_metadata(
+                judge.id,
+                judge.experiment_id,
+                {'alignment_model_config': request.alignment_model_config.dict()}
+            )
 
         # Invalidate experiment cache since we created a new judge
         self._judge_experiments_cache = None
@@ -211,6 +225,11 @@ class JudgeService(BaseService):
                 # Set labeling_run_id if available in metadata
                 if 'labeling_run_id' in metadata and metadata['labeling_run_id']:
                     judge.labeling_run_id = metadata['labeling_run_id']
+
+                # Restore alignment_model_config if available in metadata
+                if 'alignment_model_config' in metadata and metadata['alignment_model_config']:
+                    from server.models import AlignmentModelConfig
+                    judge.alignment_model_config = AlignmentModelConfig(**metadata['alignment_model_config'])
 
                 # For InstructionJudge, we don't need to manually handle optimized instructions
                 # The MLflow judge handles this internally
