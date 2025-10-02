@@ -101,7 +101,7 @@ class InstructionJudge(BaseJudge):
         try:
             # Use MLflow's native alignment capability
             self.scorer_func = self.scorer_func.align(traces=traces)
-            logger.info(f'Successfully aligned judge {self.name}')
+            logger.debug(f'Successfully aligned judge {self.name}')
             return True
 
         except Exception as e:

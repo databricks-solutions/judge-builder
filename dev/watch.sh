@@ -55,23 +55,23 @@ fi
 # Check if already authenticated to avoid opening browser every time
 check_auth() {
   if [ ! -z "$DATABRICKS_CONFIG_PROFILE" ]; then
-    uvx databricks auth describe --profile $DATABRICKS_CONFIG_PROFILE > /dev/null 2>&1
+    databricks auth describe --profile $DATABRICKS_CONFIG_PROFILE > /dev/null 2>&1
   elif [ ! -z "$DATABRICKS_HOST" ]; then
-    uvx databricks auth describe --host $DATABRICKS_HOST > /dev/null 2>&1
+    databricks auth describe --host $DATABRICKS_HOST > /dev/null 2>&1
   else
-    uvx databricks auth describe > /dev/null 2>&1
+    databricks auth describe > /dev/null 2>&1
   fi
 }
 
-if command -v uvx databricks >/dev/null 2>&1; then
+if command -v databricks >/dev/null 2>&1; then
   if ! check_auth; then
     echo "🔐 Not authenticated, logging in..."
     if [ ! -z "$DATABRICKS_CONFIG_PROFILE" ]; then
-      uvx databricks auth login --profile $DATABRICKS_CONFIG_PROFILE
+      databricks auth login --profile $DATABRICKS_CONFIG_PROFILE
     elif [ ! -z "$DATABRICKS_HOST" ]; then
-      uvx databricks auth login --host $DATABRICKS_HOST
+      databricks auth login --host $DATABRICKS_HOST
     else
-      uvx databricks auth login
+      databricks auth login
     fi
   else
     echo "✅ Already authenticated"

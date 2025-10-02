@@ -31,9 +31,7 @@ async def create_judge_builder(request: JudgeCreateRequest):
     """Create a new judge builder."""
     try:
         logger.info(f'Creating judge builder: {request.name}')
-        judge = judge_builder_service.create_judge_builder(request)
-        logger.info(f'Successfully created judge builder {judge.id}')
-        return judge
+        return judge_builder_service.create_judge_builder(request)
     except Exception as e:
         logger.error(f'Failed to create judge builder: {e}\n{traceback.format_exc()}')
         raise HTTPException(status_code=500, detail=str(e))

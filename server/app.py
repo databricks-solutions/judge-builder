@@ -43,7 +43,7 @@ def setup_logging() -> None:
     logging.getLogger('urllib3.connectionpool').setLevel(logging.ERROR)
 
     print('Judge Builder - Server starting up')
-    logging.info('Judge Builder - Logging initialized')
+    logging.debug('Judge Builder - Logging initialized')
 
 
 # Setup logging

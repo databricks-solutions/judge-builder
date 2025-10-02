@@ -51,7 +51,7 @@ class ExperimentService(BaseService):
                 )
             )
 
-        logger.info(f'Retrieved {len(trace_examples)} traces from experiment {experiment_id}')
+        logger.debug(f'Retrieved {len(trace_examples)} traces from experiment {experiment_id}')
         return trace_examples
 
 

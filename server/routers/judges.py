@@ -21,9 +21,7 @@ async def create_judge(request: JudgeCreateRequest):
     """Create a new judge (direct judge creation, not full orchestration)."""
     try:
         logger.info(f'Creating judge: {request.name}')
-        judge = judge_service.create_judge(request)
-        logger.info(f'Successfully created judge {judge.id}')
-        return judge
+        return judge_service.create_judge(request)
     except Exception as e:
         logger.error(f'Failed to create judge: {e}\n{traceback.format_exc()}')
         raise HTTPException(status_code=500, detail=str(e))

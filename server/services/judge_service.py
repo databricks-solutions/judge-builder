@@ -101,13 +101,13 @@ class JudgeService(BaseService):
         """Get a judge by ID, recreating from metadata if necessary."""
         judge = self._judges.get(judge_id)
         if judge:
-            logger.info(f'Retrieved judge {judge_id}')
+            logger.debug(f'Retrieved judge {judge_id} from cache')
             return self._judge_to_response(judge)
 
         # Try to recreate from experiment metadata
         recreated_judge = self._get_or_recreate_judge(judge_id)
         if recreated_judge:
-            logger.info(f'Recreated judge {judge_id} from metadata')
+            logger.debug(f'Recreated judge {judge_id} from metadata')
             return self._judge_to_response(recreated_judge)
 
         logger.warning(f'Judge {judge_id} not found')
@@ -115,7 +115,7 @@ class JudgeService(BaseService):
 
     def list_judges(self) -> List[JudgeResponse]:
         """List all judges."""
-        logger.info(f'Listing {len(self._judges)} judges')
+        logger.debug(f'Listing {len(self._judges)} judges')
         return [self._judge_to_response(judge) for judge in self._judges.values()]
 
     def delete_judge(self, judge_id: str) -> bool:
@@ -224,8 +224,8 @@ class JudgeService(BaseService):
                     self._versions[judge_id] = {}
                 self._versions[judge_id][judge.version] = judge
 
-                logger.info(
-                    f'Successfully recreated judge {judge_id} from experiment {experiment.experiment_id}'
+                logger.debug(
+                    f'Recreated judge {judge_id} from experiment {experiment.experiment_id}'
                 )
                 return judge
 
@@ -253,7 +253,7 @@ class JudgeService(BaseService):
 
                 # Update experiment tags
                 mlflow.set_experiment_tag('judges', json.dumps(judges_metadata))
-                logger.info(f'Updated metadata for judge {judge_id}: {updates}')
+                logger.debug(f'Updated metadata for judge {judge_id}: {updates}')
                 return True
             else:
                 logger.warning(f'Judge {judge_id} not found in experiment metadata')
@@ -282,7 +282,7 @@ class JudgeService(BaseService):
             # Update experiment metadata with labeling_run_id
             self._update_judge_metadata(judge_id, judge.experiment_id, {'labeling_run_id': labeling_run_id})
 
-            logger.info(f'Updated labeling run ID for judge {judge_id}: {labeling_run_id}')
+            logger.debug(f'Updated labeling run ID for judge {judge_id}: {labeling_run_id}')
         else:
             logger.warning(f'Judge {judge_id} not found when trying to update labeling run ID')
 
