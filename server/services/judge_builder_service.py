@@ -58,7 +58,7 @@ class JudgeBuilderService(BaseService):
                 experiment = mlflow.get_experiment(request.experiment_id)
                 if not experiment:
                     raise ValueError(f'Experiment {request.experiment_id} not found')
-                logger.info(f'Validated experiment: {experiment.name} ({request.experiment_id})')
+                logger.debug(f'Validated experiment: {experiment.name} ({request.experiment_id})')
             except Exception as e:
                 logger.error(f'Failed to validate experiment {request.experiment_id}: {e}')
                 raise ValueError(f'Invalid experiment ID: {request.experiment_id}')
@@ -74,7 +74,7 @@ class JudgeBuilderService(BaseService):
 
             try:
                 judge.register_scorer()
-                logger.info(f'Successfully registered scorer for judge {judge_response.name}')
+                logger.debug(f'Successfully registered scorer for judge {judge_response.name}')
             except Exception as e:
                 logger.error(f'CRITICAL: Failed to register scorer for judge {judge_response.name}: {e}')
                 # Clean up the judge from memory since scorer registration failed
@@ -84,7 +84,7 @@ class JudgeBuilderService(BaseService):
             # 4. Store judge metadata in experiment tags
             try:
                 self._store_judge_metadata_in_experiment(judge_response)
-                logger.info(f'Stored judge metadata in experiment for judge {judge_response.id}')
+                logger.debug(f'Stored judge metadata in experiment for judge {judge_response.id}')
             except Exception as e:
                 logger.warning(f'Failed to store judge metadata: {e}')
                 # Continue with judge creation even if metadata storage fails
@@ -101,13 +101,13 @@ class JudgeBuilderService(BaseService):
                     # Update judge with labeling run ID
                     judge_response.labeling_run_id = labeling_response.mlflow_run_id
                     self.judge_service.update_judge_labeling_run_id(judge_response.id, labeling_response.mlflow_run_id)
-                    logger.info(f'Created initial labeling session for judge {judge_response.id} with run ID {labeling_response.mlflow_run_id}')
+                    logger.debug(f'Created initial labeling session for judge {judge_response.id} with run ID {labeling_response.mlflow_run_id}')
                 except Exception as e:
                     logger.warning(
                         f'Failed to create initial labeling session (judge still created): {e}'
                     )
 
-            logger.info(f'Successfully created complete judge builder: {judge_response.id}')
+            logger.debug(f'Successfully created complete judge builder: {judge_response.id}')
             return judge_response
 
         except Exception as e:
@@ -159,7 +159,7 @@ class JudgeBuilderService(BaseService):
                     logger.warning(f'Failed to retrieve judge {judge_id}: {e}')
                     continue
 
-            logger.info(
+            logger.debug(
                 f'Successfully retrieved {len(judge_responses)} judges from experiment metadata'
             )
             return judge_responses
@@ -189,7 +189,7 @@ class JudgeBuilderService(BaseService):
             # 1. Remove judge from experiment metadata
             try:
                 self._remove_judge_from_experiment_metadata(judge_id, judge_response.experiment_id)
-                logger.info(f'Removed judge from experiment metadata: {judge_id}')
+                logger.debug(f'Removed judge from experiment metadata: {judge_id}')
             except Exception as e:
                 warning_msg = f'Failed to remove judge from experiment metadata: {e}'
                 logger.warning(warning_msg)
@@ -214,7 +214,7 @@ class JudgeBuilderService(BaseService):
 
                 # Delete the labeling session
                 self.labeling_service.delete_labeling_session(judge_id)
-                logger.info(f'Deleted labeling session for judge: {judge_id}')
+                logger.debug(f'Deleted labeling session for judge: {judge_id}')
             except Exception as e:
                 warning_msg = f'Failed to delete labeling session: {e}'
                 logger.warning(warning_msg)
@@ -227,7 +227,7 @@ class JudgeBuilderService(BaseService):
 
                 scorer_name = create_scorer_name(judge_response.name, judge_response.version)
                 delete_scorer(name=scorer_name)
-                logger.info(
+                logger.debug(
                     f'Successfully deleted MLflow scorer {scorer_name} for judge {judge_id}'
                 )
             except Exception as e:
@@ -242,7 +242,7 @@ class JudgeBuilderService(BaseService):
 
                 schema_name = sanitize_judge_name(judge_response.name)
                 schemas.delete_label_schema(schema_name)
-                logger.info(f'Successfully deleted label schema {schema_name} for judge {judge_id}')
+                logger.debug(f'Successfully deleted label schema {schema_name} for judge {judge_id}')
             except Exception as e:
                 warning_msg = f'Failed to delete label schema: {e}'
                 logger.warning(warning_msg)
@@ -252,7 +252,7 @@ class JudgeBuilderService(BaseService):
             # 5. Delete the judge from JudgeService
             try:
                 self.judge_service.delete_judge(judge_id)
-                logger.info(f'Deleted judge from service: {judge_id}')
+                logger.debug(f'Deleted judge from service: {judge_id}')
             except Exception as e:
                 warning_msg = f'Failed to delete judge from service: {e}'
                 logger.warning(warning_msg)

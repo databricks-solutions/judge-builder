@@ -208,7 +208,7 @@ class CacheService:
                 del self.trace_cache[trace_id]
                 invalidated_count += 1
 
-        logger.info(f'Invalidated {invalidated_count} traces from cache')
+        logger.debug(f'Invalidated {invalidated_count} traces from cache')
 
     def invalidate_judge_evaluations(self, judge_id: str) -> None:
         """Invalidate all cached evaluations for a judge.
