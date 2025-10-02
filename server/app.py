@@ -39,6 +39,9 @@ def setup_logging() -> None:
         level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', force=True
     )
 
+    # Silence databricks.sdk INFO logs (e.g., "loading profile from ~/.databrickscfg")
+    logging.getLogger('databricks.sdk').setLevel(logging.WARNING)
+
     # Silence urllib3 connection pool warnings
     logging.getLogger('urllib3.connectionpool').setLevel(logging.ERROR)
 
