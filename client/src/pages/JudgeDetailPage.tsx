@@ -2,7 +2,8 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useJudge, useJudgeExamples, useLabelingProgress, useAlignment, useAlignmentComparison, useExperimentTraces } from "@/hooks/useApi"
 import { UsersService, AlignmentService, LabelingService } from "@/fastapi_client"
-import type { Example } from "@/fastapi_client"
+import type { Example, AlignmentModelConfig } from "@/fastapi_client"
+import { AlignmentModelSelector } from "@/components/AlignmentModelSelector"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -60,6 +61,9 @@ export default function JudgeDetailPage() {
   const [testResults, setTestResults] = useState<Record<string, any>>({})
   const [smeEmails, setSmeEmails] = useState("")
   const [creatingLabelingSession, setCreatingLabelingSession] = useState(false)
+  const [alignmentModelConfig, setAlignmentModelConfig] = useState<AlignmentModelConfig | null>(
+    judge?.alignment_model_config || null
+  )
   
   // Reset labeling session creation state if there was an error or on component mount
   useEffect(() => {
@@ -1011,6 +1015,14 @@ export default function JudgeDetailPage() {
                       Improve your judge's performance by running alignment with human feedback.
                     </p>
                   </div>
+
+                  <div className="w-full max-w-md">
+                    <AlignmentModelSelector
+                      value={alignmentModelConfig}
+                      onChange={setAlignmentModelConfig}
+                    />
+                  </div>
+
                   <Button 
                     size="lg"
                     className={`flex items-center gap-2 ${readyForAlignment === 0 ? 'opacity-50' : ''}`} 
@@ -1127,6 +1139,22 @@ export default function JudgeDetailPage() {
                       <p className="text-sm text-muted-foreground">View alignment results and performance improvements.</p>
                     </div>
                   </div>
+
+                  {/* Alignment Model Configuration */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Alignment Model Configuration</CardTitle>
+                      <CardDescription>
+                        Configure which model to use for future alignment runs
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <AlignmentModelSelector
+                        value={alignmentModelConfig}
+                        onChange={setAlignmentModelConfig}
+                      />
+                    </CardContent>
+                  </Card>
                 </div>
               )}
             </>

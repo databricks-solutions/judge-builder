@@ -8,9 +8,10 @@ import { ExternalLink, Trash2, RefreshCw, Copy } from "lucide-react"
 import { LoadingDots } from "@/components/ui/loading-dots"
 import { ExperimentSelector } from "@/components/ExperimentSelector"
 import { JudgeBuildersService, JudgesService, UsersService } from "@/fastapi_client"
-import type { JudgeCreateRequest, JudgeResponse } from "@/fastapi_client"
+import type { JudgeCreateRequest, JudgeResponse, AlignmentModelConfig } from "@/fastapi_client"
 import { useToast } from "@/contexts/ToastContext"
 import { JudgeInstructionInput } from "@/components/JudgeInstructionInput"
+import { AlignmentModelSelector } from "@/components/AlignmentModelSelector"
 import { validateTemplateVariables } from "@/lib/templateValidation"
 import databricksLogoUrl from "@/assets/databricks_logo.svg"
 
@@ -28,6 +29,7 @@ export default function WelcomePage() {
   const [judgeInstruction, setJudgeInstruction] = useState("")
   const [experimentId, setExperimentId] = useState("")
   const [smeEmails, setSmeEmails] = useState("")
+  const [alignmentModelConfig, setAlignmentModelConfig] = useState<AlignmentModelConfig | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [databricksHost, setDatabricksHost] = useState<string | null>(null)
   const [servicePrincipalId, setServicePrincipalId] = useState<string | null>(null)
@@ -244,7 +246,8 @@ export default function WelcomePage() {
         name: finalJudgeName,
         instruction: finalInstruction,
         experiment_id: experimentId,
-        sme_emails: smeEmails.split(',').map(email => email.trim()).filter(Boolean)
+        sme_emails: smeEmails.split(',').map(email => email.trim()).filter(Boolean),
+        alignment_model_config: alignmentModelConfig
       }
       
       
@@ -260,6 +263,7 @@ export default function WelcomePage() {
       setJudgeInstruction("")
       setExperimentId("")
       setSmeEmails("")
+      setAlignmentModelConfig(null)
       
       // Navigate to the newly created judge
       navigate(`/judge/${response.id}`)
@@ -479,6 +483,11 @@ export default function WelcomePage() {
                 Comma-separated email addresses for human feedback
               </p>
             </div>
+
+            <AlignmentModelSelector
+              value={alignmentModelConfig}
+              onChange={setAlignmentModelConfig}
+            />
 
             <Button 
               onClick={handleCreateJudge}
