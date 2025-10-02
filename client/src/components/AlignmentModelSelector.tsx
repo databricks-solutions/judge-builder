@@ -21,9 +21,10 @@ interface AlignmentModelSelectorProps {
   value?: AlignmentModelConfig | null
   onChange: (config: AlignmentModelConfig | null) => void
   className?: string
+  showLabel?: boolean
 }
 
-export function AlignmentModelSelector({ value, onChange, className }: AlignmentModelSelectorProps) {
+export function AlignmentModelSelector({ value, onChange, className, showLabel = true }: AlignmentModelSelectorProps) {
   const [endpoints, setEndpoints] = useState<ServingEndpoint[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -85,10 +86,12 @@ export function AlignmentModelSelector({ value, onChange, className }: Alignment
   }, [searchQuery, filteredEndpoints])
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <Label className="text-sm font-medium">
-        Alignment Model <span className="text-muted-foreground font-normal">(optional)</span>
-      </Label>
+    <div className={cn(showLabel ? "space-y-2" : "", className)}>
+      {showLabel && (
+        <Label className="text-sm font-medium">
+          Alignment Model <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+      )}
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>

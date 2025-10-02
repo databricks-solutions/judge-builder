@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AlignmentModelConfig } from '../models/AlignmentModelConfig';
 import type { AlignmentResponse } from '../models/AlignmentResponse';
 import type { CreateLabelingSessionRequest } from '../models/CreateLabelingSessionRequest';
 import type { CreateLabelingSessionResponse } from '../models/CreateLabelingSessionResponse';
@@ -160,6 +161,31 @@ export class ApiService {
             path: {
                 'judge_id': judgeId,
             },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Update Alignment Model
+     * Update the alignment model configuration for a judge.
+     * @param judgeId
+     * @param requestBody
+     * @returns JudgeResponse Successful Response
+     * @throws ApiError
+     */
+    public static updateAlignmentModelApiJudgesJudgeIdAlignmentModelPatch(
+        judgeId: string,
+        requestBody?: (AlignmentModelConfig | null),
+    ): CancelablePromise<JudgeResponse> {
+        return __request(OpenAPI, {
+            method: 'PATCH',
+            url: '/api/judges/{judge_id}/alignment-model',
+            path: {
+                'judge_id': judgeId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: `Validation Error`,
             },

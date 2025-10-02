@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useJudge, useJudgeExamples, useLabelingProgress, useAlignment, useAlignmentComparison, useExperimentTraces } from "@/hooks/useApi"
-import { UsersService, AlignmentService, LabelingService } from "@/fastapi_client"
+import { UsersService, AlignmentService, LabelingService, JudgesService } from "@/fastapi_client"
 import type { Example, AlignmentModelConfig } from "@/fastapi_client"
 import { AlignmentModelSelector } from "@/components/AlignmentModelSelector"
 import { Button } from "@/components/ui/button"
@@ -61,10 +61,35 @@ export default function JudgeDetailPage() {
   const [testResults, setTestResults] = useState<Record<string, any>>({})
   const [smeEmails, setSmeEmails] = useState("")
   const [creatingLabelingSession, setCreatingLabelingSession] = useState(false)
-  const [alignmentModelConfig, setAlignmentModelConfig] = useState<AlignmentModelConfig | null>(
-    judge?.alignment_model_config || null
-  )
-  
+  const [alignmentModelConfig, setAlignmentModelConfig] = useState<AlignmentModelConfig | null>(null)
+
+  // Initialize alignment model config when judge is loaded
+  useEffect(() => {
+    if (judge?.alignment_model_config) {
+      setAlignmentModelConfig(judge.alignment_model_config)
+    }
+  }, [judge?.alignment_model_config])
+
+  // Update alignment model config when it changes
+  const handleAlignmentModelConfigChange = async (config: AlignmentModelConfig | null) => {
+    setAlignmentModelConfig(config)
+
+    if (!judgeId) return
+
+    try {
+      await JudgesService.updateAlignmentModelApiJudgesJudgeIdAlignmentModelPatch(judgeId, config)
+      // Refresh judge data
+      refetchJudge()
+    } catch (error) {
+      console.error("Failed to update alignment model config:", error)
+      toast({
+        title: "Failed to update alignment model",
+        description: "Could not save the alignment model configuration.",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Reset labeling session creation state if there was an error or on component mount
   useEffect(() => {
     if (progressError || examplesError) {
@@ -1019,7 +1044,7 @@ export default function JudgeDetailPage() {
                   <div className="w-full max-w-md">
                     <AlignmentModelSelector
                       value={alignmentModelConfig}
-                      onChange={setAlignmentModelConfig}
+                      onChange={handleAlignmentModelConfigChange}
                     />
                   </div>
 
@@ -1120,41 +1145,34 @@ export default function JudgeDetailPage() {
               ) : (
                 /* Regular header layout for v2+ judges */
                 <div className="space-y-6">
-                  {/* Align Section Header */}
+                  {/* Align Section Header with inline model selector */}
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-4">
-                        <h2 className="text-xl font-semibold flex items-center gap-2">
-                          <CheckCircle className="w-5 h-5" />
-                          Align
-                        </h2>
-                        {judge?.version && judge.version >= 2 && (
-                          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">
-                            <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version - 1}</Badge>
-                            <span className="text-sm font-semibold text-blue-700">→</span>
-                            <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version}</Badge>
-                          </div>
-                        )}
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-xl font-semibold flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" />
+                        Align
+                      </h2>
+                      {judge?.version && judge.version >= 2 && (
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">
+                          <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version - 1}</Badge>
+                          <span className="text-sm font-semibold text-blue-700">→</span>
+                          <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version}</Badge>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inline Alignment Model Selector */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-muted-foreground">Alignment Model:</span>
+                      <div className="w-64">
+                        <AlignmentModelSelector
+                          value={alignmentModelConfig}
+                          onChange={handleAlignmentModelConfigChange}
+                          showLabel={false}
+                        />
                       </div>
-                      <p className="text-sm text-muted-foreground">View alignment results and performance improvements.</p>
                     </div>
                   </div>
-
-                  {/* Alignment Model Configuration */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Alignment Model Configuration</CardTitle>
-                      <CardDescription>
-                        Configure which model to use for future alignment runs
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <AlignmentModelSelector
-                        value={alignmentModelConfig}
-                        onChange={setAlignmentModelConfig}
-                      />
-                    </CardContent>
-                  </Card>
                 </div>
               )}
             </>

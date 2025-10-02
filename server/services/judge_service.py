@@ -102,7 +102,7 @@ class JudgeService(BaseService):
             self._update_judge_metadata(
                 judge.id,
                 judge.experiment_id,
-                {'alignment_model_config': request.alignment_model_config.dict()}
+                {'alignment_model_config': request.alignment_model_config.model_dump()}
             )
 
         # Invalidate experiment cache since we created a new judge
@@ -147,6 +147,36 @@ class JudgeService(BaseService):
 
         logger.warning(f'Cannot delete judge {judge_id}: not found')
         return False
+
+    def update_alignment_model_config(
+        self, judge_id: str, config: Optional['AlignmentModelConfig']
+    ) -> Optional[JudgeResponse]:
+        """Update the alignment model configuration for a judge."""
+        judge = self._judges.get(judge_id)
+        if not judge:
+            # Try to recreate from metadata
+            judge = self._get_or_recreate_judge(judge_id)
+            if not judge:
+                logger.warning(f'Judge {judge_id} not found')
+                return None
+
+        # Update the alignment model config
+        judge.alignment_model_config = config
+
+        # Persist to metadata
+        if config:
+            self._update_judge_metadata(
+                judge_id, judge.experiment_id, {'alignment_model_config': config.model_dump()}
+            )
+        else:
+            # Remove alignment_model_config from metadata if config is None
+            self._update_judge_metadata(judge_id, judge.experiment_id, {'alignment_model_config': None})
+
+        logger.info(
+            f'Updated alignment model config for judge {judge_id}: '
+            f'{config.model_type if config else "default"}'
+        )
+        return self._judge_to_response(judge)
 
     # Version management
     def create_new_version(self, judge_id: str, aligned_instruction: str) -> JudgeResponse:
