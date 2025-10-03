@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AlignmentModelConfig } from './AlignmentModelConfig';
 /**
  * Request model for creating a new judge.
  */
@@ -22,5 +23,9 @@ export type JudgeCreateRequest = {
      * Optional list of SME email addresses for labeling session
      */
     sme_emails?: (Array<string> | null);
+    /**
+     * Optional alignment model configuration
+     */
+    alignment_model_config?: (AlignmentModelConfig | null);
 };
 

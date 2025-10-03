@@ -92,16 +92,33 @@ class InstructionJudge(BaseJudge):
             logger.warning(f'Failed to register InstructionJudge scorer: {e}')
             return None
 
-    def optimize(self, traces: List[mlflow.entities.Trace]) -> bool:
-        """Optimize the judge using labeled traces."""
+    def optimize(self, traces: List[mlflow.entities.Trace], alignment_model: Optional[str] = None) -> bool:
+        """Optimize the judge using labeled traces with optional custom alignment model.
+
+        Args:
+            traces: List of MLflow traces with human feedback for alignment
+            alignment_model: Optional model identifier for alignment (e.g., 'databricks:/my-endpoint')
+                           If None, uses default alignment model.
+
+        Returns:
+            True if alignment succeeded, False otherwise
+        """
         logger.info(
             f'Starting optimization for judge {self.name} with {len(traces)} traces'
         )
 
         try:
-            # Use MLflow's native alignment capability
-            self.scorer_func = self.scorer_func.align(traces=traces)
-            logger.info(f'Successfully aligned judge {self.name}')
+            if alignment_model:
+                logger.info(f"Using custom alignment model: {alignment_model}")
+                from server.judges.custom_simba_optimizer import CustomSIMBAAlignmentOptimizer
+
+                optimizer = CustomSIMBAAlignmentOptimizer(model=alignment_model)
+                self.scorer_func = self.scorer_func.align(traces=traces, optimizer=optimizer)
+            else:
+                logger.info("Using default alignment model")
+                self.scorer_func = self.scorer_func.align(traces=traces)
+
+            logger.debug(f'Successfully aligned judge {self.name}')
             return True
 
         except Exception as e:

@@ -59,6 +59,7 @@ class JudgeService(BaseService):
             version=judge.version,
             labeling_run_id=judge.labeling_run_id,
             schema_info=schema_info,
+            alignment_model_config=getattr(judge, 'alignment_model_config', None),
         )
 
     def _get_judge_experiments(self, force_refresh: bool = False):
@@ -83,6 +84,11 @@ class JudgeService(BaseService):
             experiment_id=request.experiment_id,
         )
 
+        # Store alignment model config if provided
+        if request.alignment_model_config:
+            judge.alignment_model_config = request.alignment_model_config
+            logger.info(f'Judge created with alignment model config: {request.alignment_model_config.model_type}')
+
         # Store in memory
         self._judges[judge.id] = judge
 
@@ -90,6 +96,14 @@ class JudgeService(BaseService):
         if judge.id not in self._versions:
             self._versions[judge.id] = {}
         self._versions[judge.id][judge.version] = judge
+
+        # Store alignment model config in metadata if provided
+        if request.alignment_model_config:
+            self._update_judge_metadata(
+                judge.id,
+                judge.experiment_id,
+                {'alignment_model_config': request.alignment_model_config.model_dump()}
+            )
 
         # Invalidate experiment cache since we created a new judge
         self._judge_experiments_cache = None
@@ -101,13 +115,13 @@ class JudgeService(BaseService):
         """Get a judge by ID, recreating from metadata if necessary."""
         judge = self._judges.get(judge_id)
         if judge:
-            logger.info(f'Retrieved judge {judge_id}')
+            logger.debug(f'Retrieved judge {judge_id} from cache')
             return self._judge_to_response(judge)
 
         # Try to recreate from experiment metadata
         recreated_judge = self._get_or_recreate_judge(judge_id)
         if recreated_judge:
-            logger.info(f'Recreated judge {judge_id} from metadata')
+            logger.debug(f'Recreated judge {judge_id} from metadata')
             return self._judge_to_response(recreated_judge)
 
         logger.warning(f'Judge {judge_id} not found')
@@ -115,7 +129,7 @@ class JudgeService(BaseService):
 
     def list_judges(self) -> List[JudgeResponse]:
         """List all judges."""
-        logger.info(f'Listing {len(self._judges)} judges')
+        logger.debug(f'Listing {len(self._judges)} judges')
         return [self._judge_to_response(judge) for judge in self._judges.values()]
 
     def delete_judge(self, judge_id: str) -> bool:
@@ -133,6 +147,36 @@ class JudgeService(BaseService):
 
         logger.warning(f'Cannot delete judge {judge_id}: not found')
         return False
+
+    def update_alignment_model_config(
+        self, judge_id: str, config: Optional['AlignmentModelConfig']
+    ) -> Optional[JudgeResponse]:
+        """Update the alignment model configuration for a judge."""
+        judge = self._judges.get(judge_id)
+        if not judge:
+            # Try to recreate from metadata
+            judge = self._get_or_recreate_judge(judge_id)
+            if not judge:
+                logger.warning(f'Judge {judge_id} not found')
+                return None
+
+        # Update the alignment model config
+        judge.alignment_model_config = config
+
+        # Persist to metadata
+        if config:
+            self._update_judge_metadata(
+                judge_id, judge.experiment_id, {'alignment_model_config': config.model_dump()}
+            )
+        else:
+            # Remove alignment_model_config from metadata if config is None
+            self._update_judge_metadata(judge_id, judge.experiment_id, {'alignment_model_config': None})
+
+        logger.info(
+            f'Updated alignment model config for judge {judge_id}: '
+            f'{config.model_type if config else "default"}'
+        )
+        return self._judge_to_response(judge)
 
     # Version management
     def create_new_version(self, judge_id: str, aligned_instruction: str) -> JudgeResponse:
@@ -212,6 +256,11 @@ class JudgeService(BaseService):
                 if 'labeling_run_id' in metadata and metadata['labeling_run_id']:
                     judge.labeling_run_id = metadata['labeling_run_id']
 
+                # Restore alignment_model_config if available in metadata
+                if 'alignment_model_config' in metadata and metadata['alignment_model_config']:
+                    from server.models import AlignmentModelConfig
+                    judge.alignment_model_config = AlignmentModelConfig(**metadata['alignment_model_config'])
+
                 # For InstructionJudge, we don't need to manually handle optimized instructions
                 # The MLflow judge handles this internally
                 # TODO: We may need to recreate the judge with optimized instructions if needed
@@ -224,8 +273,8 @@ class JudgeService(BaseService):
                     self._versions[judge_id] = {}
                 self._versions[judge_id][judge.version] = judge
 
-                logger.info(
-                    f'Successfully recreated judge {judge_id} from experiment {experiment.experiment_id}'
+                logger.debug(
+                    f'Recreated judge {judge_id} from experiment {experiment.experiment_id}'
                 )
                 return judge
 
@@ -253,7 +302,7 @@ class JudgeService(BaseService):
 
                 # Update experiment tags
                 mlflow.set_experiment_tag('judges', json.dumps(judges_metadata))
-                logger.info(f'Updated metadata for judge {judge_id}: {updates}')
+                logger.debug(f'Updated metadata for judge {judge_id}: {updates}')
                 return True
             else:
                 logger.warning(f'Judge {judge_id} not found in experiment metadata')
@@ -282,7 +331,7 @@ class JudgeService(BaseService):
             # Update experiment metadata with labeling_run_id
             self._update_judge_metadata(judge_id, judge.experiment_id, {'labeling_run_id': labeling_run_id})
 
-            logger.info(f'Updated labeling run ID for judge {judge_id}: {labeling_run_id}')
+            logger.debug(f'Updated labeling run ID for judge {judge_id}: {labeling_run_id}')
         else:
             logger.warning(f'Judge {judge_id} not found when trying to update labeling run ID')
 

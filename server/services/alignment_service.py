@@ -77,11 +77,12 @@ class AlignmentService(BaseService):
                 raise ValueError(f'Judge {judge_id} not found')
 
             # Check if evaluation is cached
+            dataset_version = cache_service.compute_dataset_version(request.trace_ids)
             cached_run_id = cache_service.get_evaluation_run_id(
                 judge_id, judge.version, request.trace_ids, judge.experiment_id
             )
             if cached_run_id:
-                logger.info(f'Using cached evaluation run {cached_run_id} for judge {judge_id}')
+                logger.info(f'Using cached evaluation run {cached_run_id} for judge {judge_id} v{judge.version} with dataset {dataset_version} ({len(request.trace_ids)} traces)')
                 return EvaluationResult(
                     judge_id=judge_id,
                     judge_version=judge.version,
@@ -98,7 +99,7 @@ class AlignmentService(BaseService):
             if not judge_scorer:
                 raise ValueError(f'Scorer for judge {judge.name} not found')
 
-            logger.info(f'Found scorer: {judge_scorer.name} for judge {judge.name} version {judge.version}')
+            logger.debug(f'Found scorer: {judge_scorer.name} for judge {judge.name} v{judge.version}')
 
             # Get traces using cache
             traces = []
@@ -116,12 +117,15 @@ class AlignmentService(BaseService):
 
             # Run evaluation
             sanitized_name = sanitize_judge_name(judge.name)
-            with mlflow.start_run(run_name=f'evaluation_{sanitized_name}_v{judge.version}') as run:
+            dataset_version = cache_service.compute_dataset_version(request.trace_ids)
+            run_name = f'evaluation_{sanitized_name}_v{judge.version}_{dataset_version}'
+
+            logger.info(f'Running evaluation for judge {judge_id} v{judge.version} with dataset {dataset_version} ({len(request.trace_ids)} traces)')
+
+            with mlflow.start_run(run_name=run_name) as run:
                 mlflow.set_tag('judge_id', judge_id)
                 mlflow.set_tag('judge_version', judge.version)
-                mlflow.set_tag(
-                    'dataset_version', cache_service.compute_dataset_version(request.trace_ids)
-                )
+                mlflow.set_tag('dataset_version', dataset_version)
 
                 evaluate(data=eval_data, scorers=[judge_scorer])
 
@@ -240,13 +244,13 @@ class AlignmentService(BaseService):
 
         # If ALL traces are missing previous feedback, run previous version evaluation
         if missing_prev_count == len(examples_with_feedback):
-            logger.info(f'All traces missing previous judge feedback (v{judge.version - 1}), running evaluation')
+            logger.debug(f'All traces missing previous judge feedback (v{judge.version - 1}), running evaluation')
             self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
             cache_service.invalidate_traces(trace_ids)
 
         # If ALL traces are missing current feedback, run current version evaluation
         if missing_curr_count == len(examples_with_feedback):
-            logger.info(f'All traces missing current judge feedback (v{judge.version}), running evaluation')
+            logger.debug(f'All traces missing current judge feedback (v{judge.version}), running evaluation')
             self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
             cache_service.invalidate_traces(trace_ids)
 
@@ -301,7 +305,7 @@ class AlignmentService(BaseService):
         # Use cached schema information from judge
         if judge.schema_info:
             schema_info = judge.schema_info
-            logger.info(f'Using cached schema for judge {judge_id}: binary={schema_info.is_binary}')
+            logger.debug(f'Using cached schema for judge {judge_id}: binary={schema_info.is_binary}')
         else:
             # Fallback: analyze judge schema (backward compatibility)
             logger.warning(f'No cached schema info for judge {judge_id}, analyzing instruction')
@@ -351,7 +355,7 @@ class AlignmentService(BaseService):
 
         # Get traces from the labeling service examples
         from server.services.labeling_service import labeling_service
-        logger.info(f'Getting examples from judge {judge_id}')
+        logger.debug(f'Getting examples from judge {judge_id}')
         examples = labeling_service.get_examples(judge_id)
 
         # Get actual traces using trace_ids from examples
@@ -373,21 +377,35 @@ class AlignmentService(BaseService):
         trace_ids = [trace.info.trace_id for trace in traces]
 
         # Step 1: Run evaluation on current judge version (v_i)
-        logger.info(f'Running evaluation on judge {judge_id} version {current_judge.version}')
+        logger.debug(f'Running evaluation on judge {judge_id} v{current_judge.version}')
         self.evaluate_judge(judge_id, TraceRequest(trace_ids=trace_ids))
 
         # Invalidate trace cache after evaluation to get fresh judge feedback
-        logger.info(f'Invalidating trace cache for {len(trace_ids)} traces after evaluation')
+        logger.debug(f'Invalidating {len(trace_ids)} traces from cache after evaluation')
         cache_service.invalidate_traces(trace_ids)
 
         # Get fresh traces with updated judge feedback for optimization
         fresh_traces = cache_service.get_traces(trace_ids)
-        logger.info(f'Retrieved {len(fresh_traces)} fresh traces for optimization')
+        logger.debug(f'Retrieved {len(fresh_traces)} fresh traces for optimization')
 
-        # Step 2: Run alignment on the judge using MLflow's native capability
+        # Step 2: Get alignment model if configured
+        alignment_model = None
+        if current_judge.alignment_model_config and current_judge.alignment_model_config.model_type == "serving_endpoint":
+            endpoint_name = current_judge.alignment_model_config.serving_endpoint.endpoint_name
+            alignment_model = f"databricks:/{endpoint_name}"
+            logger.info(f'Using custom alignment model: {alignment_model}')
+        else:
+            # Use configured default alignment model
+            if dspy_utils.USE_AGENT_EVAL_LM:
+                logger.info('Using default alignment model (AgentEvalLM via chat_completions)')
+            else:
+                alignment_model = f"databricks:/{dspy_utils.DEFAULT_ALIGNMENT_MODEL}"
+                logger.info(f'Using default alignment model: {alignment_model}')
+
+        # Step 3: Run alignment on the judge using MLflow's native capability
         logger.info(f'Starting alignment for judge {judge_id}')
         judge_instance = judge_service._judges[judge_id]
-        alignment_success = judge_instance.optimize(fresh_traces)
+        alignment_success = judge_instance.optimize(fresh_traces, alignment_model=alignment_model)
 
         # Check if alignment failed and fail early
         if not alignment_success:
@@ -406,7 +424,7 @@ class AlignmentService(BaseService):
         new_eval_result = self.evaluate_judge(new_judge.id, TraceRequest(trace_ids=trace_ids))
 
         # Invalidate trace cache after second evaluation to get fresh judge feedback
-        logger.info(f'Invalidating trace cache for {len(trace_ids)} traces after new version evaluation')
+        logger.debug(f'Invalidating trace cache for {len(trace_ids)} traces after new version evaluation')
         cache_service.invalidate_traces(trace_ids)
 
         # Step 5: Use labeling service count for aligned samples count

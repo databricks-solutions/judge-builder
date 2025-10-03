@@ -53,7 +53,7 @@ class LabelingService(BaseService):
             try:
                 options = extract_categorical_options_from_instruction(judge_response.instruction)
                 schema_input = schemas.InputCategorical(options=options)
-                logger.info(f'Generated schema for judge {judge_response.name}: {len(options)} options')
+                logger.debug(f'Generated schema for judge {judge_response.name}: {len(options)} options')
             except Exception as e:
                 logger.warning(f'Schema analysis failed for judge {judge_response.name}: {e}, using pass/fail fallback')
                 schema_input = schemas.InputCategorical(options=['Pass', 'Fail'])
