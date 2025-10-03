@@ -147,7 +147,7 @@ class CacheService:
                 return None
 
             sanitized_name = sanitize_judge_name(judge.name)
-            run_name_pattern = f'evaluation_{sanitized_name}_v{judge_version}'
+            run_name_pattern = f'evaluation_{sanitized_name}_v{judge_version}_{dataset_version}'
 
             # Search for runs by name pattern
             all_runs = mlflow.search_runs(
@@ -157,7 +157,7 @@ class CacheService:
             )
 
             for run in all_runs:
-                if run.info.run_name and run_name_pattern in run.info.run_name:
+                if run.info.run_name and run.info.run_name == run_name_pattern:
                     run_id = run.info.run_id
                     # Cache the found run
                     self.evaluation_cache[f'{judge_id}:{judge_version}:{dataset_version}'] = run_id

@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SchemaInfo } from './SchemaInfo';
 /**
  * Response model for judge information.
  */
@@ -30,5 +31,9 @@ export type JudgeResponse = {
      * MLflow run ID for labeling session
      */
     labeling_run_id?: (string | null);
+    /**
+     * Cached schema analysis for consistent use
+     */
+    schema_info?: (SchemaInfo | null);
 };
 

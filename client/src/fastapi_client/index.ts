@@ -21,6 +21,7 @@ export type { JudgeCreateRequest } from './models/JudgeCreateRequest';
 export type { JudgeResponse } from './models/JudgeResponse';
 export type { JudgeTraceResult } from './models/JudgeTraceResult';
 export type { LabelingProgress } from './models/LabelingProgress';
+export type { SchemaInfo } from './models/SchemaInfo';
 export type { TestJudgeRequest } from './models/TestJudgeRequest';
 export type { TestJudgeResponse } from './models/TestJudgeResponse';
 export type { TraceRequest } from './models/TraceRequest';
