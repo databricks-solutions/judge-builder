@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.3.0 (2025-10-03)
+
+### Features
+
+- **Alignment Model Selector**: Introduced a model selector for the alignment "teacher" model, allowing users to choose custom serving endpoints
+
+### Improvements
+
+- Made alignment limit clear with improved UI messaging about the 10-example requirement
+- Reduced logging bloat in judge builder and fixed watch.sh script
+- Fixed bug in iterative alignments where evaluations were not running on the full set of traces, causing incorrect cached results to be used
+
 ## 0.2.1 (2025-09-24)
 
 ### Improvements
