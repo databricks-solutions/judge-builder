@@ -23,6 +23,8 @@ interface AvailableTrace {
   response: any
 }
 
+// Minimum number of labeled examples required for alignment
+const MIN_EXAMPLES_FOR_ALIGNMENT = 10
 
 export default function JudgeDetailPage() {
   const { judgeId } = useParams<{ judgeId: string }>()
@@ -677,7 +679,7 @@ export default function JudgeDetailPage() {
                 )}
                 {!examplesLoading && examples.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
-                    No examples found for this judge.
+                    Please add {MIN_EXAMPLES_FOR_ALIGNMENT} or more examples to start aligning this judge.
                   </div>
                 )}
               </div>
@@ -846,8 +848,8 @@ export default function JudgeDetailPage() {
               onClick={async () => {
                 if (readyForAlignment === 0) {
                   toast({
-                    title: "No examples ready for alignment",
-                    description: "Please add and label some examples before continuing with alignment.",
+                    title: "Not enough examples for alignment",
+                    description: `Please add ${MIN_EXAMPLES_FOR_ALIGNMENT} or more examples to start aligning the judge.`,
                     variant: "destructive"
                   })
                   return
@@ -885,7 +887,7 @@ export default function JudgeDetailPage() {
                     if (isInsufficientExamples) {
                       toast({
                         title: "Not Enough Labeled Examples",
-                        description: "Need at least 10 labeled examples for alignment.",
+                        description: `Please add ${MIN_EXAMPLES_FOR_ALIGNMENT} or more examples to start aligning the judge.`,
                         variant: "destructive",
                         duration: 8000
                       })
@@ -1015,8 +1017,8 @@ export default function JudgeDetailPage() {
                     onClick={async () => {
                       if (readyForAlignment === 0) {
                         toast({
-                          title: "No examples ready for alignment",
-                          description: "Please add and label some examples before continuing with alignment.",
+                          title: "Not enough examples for alignment",
+                          description: `Please add ${MIN_EXAMPLES_FOR_ALIGNMENT} or more examples to start aligning the judge.`,
                           variant: "destructive"
                         })
                         return
@@ -1051,7 +1053,7 @@ export default function JudgeDetailPage() {
                           if (isInsufficientExamples) {
                             toast({
                               title: "Not Enough Labeled Examples",
-                              description: "Need at least 10 labeled examples for alignment.",
+                              description: `Please add ${MIN_EXAMPLES_FOR_ALIGNMENT} or more examples to start aligning the judge.`,
                               variant: "destructive",
                               duration: 8000
                             })
