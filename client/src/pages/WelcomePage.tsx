@@ -4,13 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ExternalLink, Trash2, RefreshCw, Copy } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ExternalLink, Trash2, RefreshCw, Copy, Info } from "lucide-react"
 import { LoadingDots } from "@/components/ui/loading-dots"
 import { ExperimentSelector } from "@/components/ExperimentSelector"
 import { JudgeBuildersService, JudgesService, UsersService } from "@/fastapi_client"
-import type { JudgeCreateRequest, JudgeResponse } from "@/fastapi_client"
+import type { JudgeCreateRequest, JudgeResponse, AlignmentModelConfig } from "@/fastapi_client"
 import { useToast } from "@/contexts/ToastContext"
 import { JudgeInstructionInput } from "@/components/JudgeInstructionInput"
+import { AlignmentModelSelector } from "@/components/AlignmentModelSelector"
 import { validateTemplateVariables } from "@/lib/templateValidation"
 import databricksLogoUrl from "@/assets/databricks_logo.svg"
 
@@ -28,6 +30,7 @@ export default function WelcomePage() {
   const [judgeInstruction, setJudgeInstruction] = useState("")
   const [experimentId, setExperimentId] = useState("")
   const [smeEmails, setSmeEmails] = useState("")
+  const [alignmentModelConfig, setAlignmentModelConfig] = useState<AlignmentModelConfig | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [databricksHost, setDatabricksHost] = useState<string | null>(null)
   const [servicePrincipalId, setServicePrincipalId] = useState<string | null>(null)
@@ -244,7 +247,8 @@ export default function WelcomePage() {
         name: finalJudgeName,
         instruction: finalInstruction,
         experiment_id: experimentId,
-        sme_emails: smeEmails.split(',').map(email => email.trim()).filter(Boolean)
+        sme_emails: smeEmails.split(',').map(email => email.trim()).filter(Boolean),
+        alignment_model_config: alignmentModelConfig
       }
       
       
@@ -260,6 +264,7 @@ export default function WelcomePage() {
       setJudgeInstruction("")
       setExperimentId("")
       setSmeEmails("")
+      setAlignmentModelConfig(null)
       
       // Navigate to the newly created judge
       navigate(`/judge/${response.id}`)
@@ -369,7 +374,7 @@ export default function WelcomePage() {
           <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
             <div>
               <label htmlFor="judgeName" className="block text-sm font-medium mb-2">
-                Judge Name {selectedTemplate !== "custom" ? "(optional)" : "*"}
+                Judge Name {selectedTemplate !== "custom" ? "(optional)" : <span className="text-red-500">*</span>}
               </label>
               <Input
                 id="judgeName"
@@ -400,7 +405,7 @@ export default function WelcomePage() {
 
             <div>
               <label className="block text-sm font-medium mb-2">
-                MLflow Experiment ID *
+                MLflow Experiment ID <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center gap-2">
                 <div className="flex-grow">
@@ -466,19 +471,36 @@ export default function WelcomePage() {
             </div>
 
             <div>
-              <label htmlFor="smeEmails" className="block text-sm font-medium mb-2">
-                Subject Matter Expert Emails *
-              </label>
+              <div className="flex items-center gap-1 mb-2">
+                <label htmlFor="smeEmails" className="block text-sm font-medium">
+                  Subject Matter Expert Emails <span className="text-red-500">*</span>
+                </label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="inline-flex items-center">
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Comma-separated email addresses for human feedback</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 id="smeEmails"
                 value={smeEmails}
                 onChange={(e) => setSmeEmails(e.target.value)}
                 placeholder="user1@example.com, user2@example.com"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Comma-separated email addresses for human feedback
-              </p>
             </div>
+
+            <AlignmentModelSelector
+              value={alignmentModelConfig}
+              onChange={setAlignmentModelConfig}
+              showTooltip={true}
+            />
 
             <Button 
               onClick={handleCreateJudge}

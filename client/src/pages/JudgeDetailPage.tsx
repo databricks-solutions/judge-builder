@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useJudge, useJudgeExamples, useLabelingProgress, useAlignment, useAlignmentComparison, useExperimentTraces } from "@/hooks/useApi"
-import { UsersService, AlignmentService, LabelingService } from "@/fastapi_client"
-import type { Example } from "@/fastapi_client"
+import { UsersService, AlignmentService, LabelingService, JudgesService } from "@/fastapi_client"
+import type { Example, AlignmentModelConfig } from "@/fastapi_client"
+import { AlignmentModelSelector } from "@/components/AlignmentModelSelector"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, AlertTriangle, Check, X } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, AlertTriangle, Check, X, Info } from "lucide-react"
 import { LoadingDots } from "@/components/ui/loading-dots"
 import { useToast } from "@/contexts/ToastContext"
 
@@ -60,7 +62,35 @@ export default function JudgeDetailPage() {
   const [testResults, setTestResults] = useState<Record<string, any>>({})
   const [smeEmails, setSmeEmails] = useState("")
   const [creatingLabelingSession, setCreatingLabelingSession] = useState(false)
-  
+  const [alignmentModelConfig, setAlignmentModelConfig] = useState<AlignmentModelConfig | null>(null)
+
+  // Initialize alignment model config when judge is loaded
+  useEffect(() => {
+    if (judge?.alignment_model_config) {
+      setAlignmentModelConfig(judge.alignment_model_config)
+    }
+  }, [judge?.alignment_model_config])
+
+  // Update alignment model config when it changes
+  const handleAlignmentModelConfigChange = async (config: AlignmentModelConfig | null) => {
+    setAlignmentModelConfig(config)
+
+    if (!judgeId) return
+
+    try {
+      await JudgesService.updateAlignmentModelApiJudgesJudgeIdAlignmentModelPatch(judgeId, config)
+      // Refresh judge data
+      refetchJudge()
+    } catch (error) {
+      console.error("Failed to update alignment model config:", error)
+      toast({
+        title: "Failed to update alignment model",
+        description: "Could not save the alignment model configuration.",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Reset labeling session creation state if there was an error or on component mount
   useEffect(() => {
     if (progressError || examplesError) {
@@ -1011,6 +1041,15 @@ export default function JudgeDetailPage() {
                       Improve your judge's performance by running alignment with human feedback.
                     </p>
                   </div>
+
+                  <div className="w-full max-w-md">
+                    <AlignmentModelSelector
+                      value={alignmentModelConfig}
+                      onChange={handleAlignmentModelConfigChange}
+                      showTooltip={true}
+                    />
+                  </div>
+
                   <Button 
                     size="lg"
                     className={`flex items-center gap-2 ${readyForAlignment === 0 ? 'opacity-50' : ''}`} 
@@ -1108,23 +1147,48 @@ export default function JudgeDetailPage() {
               ) : (
                 /* Regular header layout for v2+ judges */
                 <div className="space-y-6">
-                  {/* Align Section Header */}
+                  {/* Align Section Header with inline model selector */}
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-4">
-                        <h2 className="text-xl font-semibold flex items-center gap-2">
-                          <CheckCircle className="w-5 h-5" />
-                          Align
-                        </h2>
-                        {judge?.version && judge.version >= 2 && (
-                          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">
-                            <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version - 1}</Badge>
-                            <span className="text-sm font-semibold text-blue-700">→</span>
-                            <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version}</Badge>
-                          </div>
-                        )}
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-xl font-semibold flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" />
+                        Align
+                      </h2>
+                      {judge?.version && judge.version >= 2 && (
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg">
+                          <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version - 1}</Badge>
+                          <span className="text-sm font-semibold text-blue-700">→</span>
+                          <Badge variant="outline" className="text-sm font-semibold bg-white">v{judge.version}</Badge>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inline Alignment Model Selector */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" className="inline-flex items-center">
+                                <Info className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                The "teacher" model that optimizes the judge to align with human feedback. The judge itself uses the default Agent Evaluation model described <a href="https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/judges" target="_blank" rel="noopener noreferrer" className="underline text-blue-600">here</a>
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <span className="text-sm font-medium text-muted-foreground">Alignment Model:</span>
                       </div>
-                      <p className="text-sm text-muted-foreground">View alignment results and performance improvements.</p>
+                      <div className="w-64">
+                        <AlignmentModelSelector
+                          value={alignmentModelConfig}
+                          onChange={handleAlignmentModelConfigChange}
+                          showLabel={false}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

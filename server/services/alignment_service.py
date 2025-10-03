@@ -384,10 +384,24 @@ class AlignmentService(BaseService):
         fresh_traces = cache_service.get_traces(trace_ids)
         logger.debug(f'Retrieved {len(fresh_traces)} fresh traces for optimization')
 
-        # Step 2: Run alignment on the judge using MLflow's native capability
+        # Step 2: Get alignment model if configured
+        alignment_model = None
+        if current_judge.alignment_model_config and current_judge.alignment_model_config.model_type == "serving_endpoint":
+            endpoint_name = current_judge.alignment_model_config.serving_endpoint.endpoint_name
+            alignment_model = f"databricks:/{endpoint_name}"
+            logger.info(f'Using custom alignment model: {alignment_model}')
+        else:
+            # Use configured default alignment model
+            if dspy_utils.USE_AGENT_EVAL_LM:
+                logger.info('Using default alignment model (AgentEvalLM via chat_completions)')
+            else:
+                alignment_model = f"databricks:/{dspy_utils.DEFAULT_ALIGNMENT_MODEL}"
+                logger.info(f'Using default alignment model: {alignment_model}')
+
+        # Step 3: Run alignment on the judge using MLflow's native capability
         logger.info(f'Starting alignment for judge {judge_id}')
         judge_instance = judge_service._judges[judge_id]
-        alignment_success = judge_instance.optimize(fresh_traces)
+        alignment_success = judge_instance.optimize(fresh_traces, alignment_model=alignment_model)
 
         # Check if alignment failed and fail early
         if not alignment_success:

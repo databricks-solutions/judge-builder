@@ -3,6 +3,11 @@ from databricks.rag_eval import context, env_vars
 
 from server.utils.constants import VERSION
 
+# Default alignment model configuration
+# To switch back to AgentEvalLM (chat_completions), set USE_AGENT_EVAL_LM = True
+USE_AGENT_EVAL_LM = False
+DEFAULT_ALIGNMENT_MODEL = "databricks-claude-sonnet-4"
+
 
 class AttrDict(dict):
     """A dict that allows attribute-style access (like OpenAI's objects)."""

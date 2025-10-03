@@ -8,9 +8,24 @@ from pydantic import BaseModel, Field
 
 class SchemaInfo(BaseModel):
     """Information about the labeling schema options."""
-    
+
     is_binary: bool = Field(..., description='Whether the schema represents binary outcomes')
     options: List[str] = Field(..., description='Possible output values for this schema')
+
+
+class ServingEndpointConfig(BaseModel):
+    """Configuration for a Databricks serving endpoint."""
+
+    endpoint_name: str = Field(..., description='Name of the serving endpoint')
+
+
+class AlignmentModelConfig(BaseModel):
+    """Configuration for alignment model selection."""
+
+    model_type: str = Field(default='default', description='Type: "default" or "serving_endpoint"')
+    serving_endpoint: Optional[ServingEndpointConfig] = Field(
+        None, description='Serving endpoint config when model_type="serving_endpoint"'
+    )
 
 
 class JudgeCreateRequest(BaseModel):
@@ -21,6 +36,9 @@ class JudgeCreateRequest(BaseModel):
     experiment_id: str = Field(..., description='MLflow experiment ID to attach judge to')
     sme_emails: Optional[List[str]] = Field(
         None, description='Optional list of SME email addresses for labeling session'
+    )
+    alignment_model_config: Optional[AlignmentModelConfig] = Field(
+        None, description='Optional alignment model configuration'
     )
 
 
@@ -36,6 +54,9 @@ class JudgeResponse(BaseModel):
     version: int = Field(default=1, description='Judge version number')
     labeling_run_id: Optional[str] = Field(None, description='MLflow run ID for labeling session')
     schema_info: Optional[SchemaInfo] = Field(None, description='Cached schema analysis for consistent use')
+    alignment_model_config: Optional[AlignmentModelConfig] = Field(
+        None, description='Alignment model configuration'
+    )
     # Note: system_instruction (enhanced/aligned version) is stored internally but not exposed to user
 
 
