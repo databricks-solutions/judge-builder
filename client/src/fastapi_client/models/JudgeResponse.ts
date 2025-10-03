@@ -36,6 +36,7 @@ export type JudgeResponse = {
      * Cached schema analysis for consistent use
      */
     schema_info?: (SchemaInfo | null);
+
     /**
      * Alignment model configuration
      */

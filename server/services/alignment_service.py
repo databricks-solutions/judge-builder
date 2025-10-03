@@ -77,11 +77,12 @@ class AlignmentService(BaseService):
                 raise ValueError(f'Judge {judge_id} not found')
 
             # Check if evaluation is cached
+            dataset_version = cache_service.compute_dataset_version(request.trace_ids)
             cached_run_id = cache_service.get_evaluation_run_id(
                 judge_id, judge.version, request.trace_ids, judge.experiment_id
             )
             if cached_run_id:
-                logger.debug(f'Using cached evaluation run {cached_run_id} for judge {judge_id} v{judge.version}')
+                logger.info(f'Using cached evaluation run {cached_run_id} for judge {judge_id} v{judge.version} with dataset {dataset_version} ({len(request.trace_ids)} traces)')
                 return EvaluationResult(
                     judge_id=judge_id,
                     judge_version=judge.version,
@@ -116,12 +117,15 @@ class AlignmentService(BaseService):
 
             # Run evaluation
             sanitized_name = sanitize_judge_name(judge.name)
-            with mlflow.start_run(run_name=f'evaluation_{sanitized_name}_v{judge.version}') as run:
+            dataset_version = cache_service.compute_dataset_version(request.trace_ids)
+            run_name = f'evaluation_{sanitized_name}_v{judge.version}_{dataset_version}'
+
+            logger.info(f'Running evaluation for judge {judge_id} v{judge.version} with dataset {dataset_version} ({len(request.trace_ids)} traces)')
+
+            with mlflow.start_run(run_name=run_name) as run:
                 mlflow.set_tag('judge_id', judge_id)
                 mlflow.set_tag('judge_version', judge.version)
-                mlflow.set_tag(
-                    'dataset_version', cache_service.compute_dataset_version(request.trace_ids)
-                )
+                mlflow.set_tag('dataset_version', dataset_version)
 
                 evaluate(data=eval_data, scorers=[judge_scorer])
 
