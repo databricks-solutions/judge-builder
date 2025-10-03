@@ -45,6 +45,9 @@ def setup_logging() -> None:
     # Silence urllib3 connection pool warnings
     logging.getLogger('urllib3.connectionpool').setLevel(logging.ERROR)
 
+    # Silence databricks.sdk INFO logs (e.g., "loading profile from ~/.databrickscfg")
+    logging.getLogger('databricks.sdk').setLevel(logging.WARNING)
+
     print('Judge Builder - Server starting up')
     logging.debug('Judge Builder - Logging initialized')
 

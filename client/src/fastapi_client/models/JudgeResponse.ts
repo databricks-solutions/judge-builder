@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { AlignmentModelConfig } from './AlignmentModelConfig';
 import type { SchemaInfo } from './SchemaInfo';
 /**
  * Response model for judge information.
@@ -35,5 +36,10 @@ export type JudgeResponse = {
      * Cached schema analysis for consistent use
      */
     schema_info?: (SchemaInfo | null);
+
+    /**
+     * Alignment model configuration
+     */
+    alignment_model_config?: (AlignmentModelConfig | null);
 };
 

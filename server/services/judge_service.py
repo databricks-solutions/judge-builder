@@ -59,6 +59,7 @@ class JudgeService(BaseService):
             version=judge.version,
             labeling_run_id=judge.labeling_run_id,
             schema_info=schema_info,
+            alignment_model_config=getattr(judge, 'alignment_model_config', None),
         )
 
     def _get_judge_experiments(self, force_refresh: bool = False):
@@ -83,6 +84,11 @@ class JudgeService(BaseService):
             experiment_id=request.experiment_id,
         )
 
+        # Store alignment model config if provided
+        if request.alignment_model_config:
+            judge.alignment_model_config = request.alignment_model_config
+            logger.info(f'Judge created with alignment model config: {request.alignment_model_config.model_type}')
+
         # Store in memory
         self._judges[judge.id] = judge
 
@@ -90,6 +96,14 @@ class JudgeService(BaseService):
         if judge.id not in self._versions:
             self._versions[judge.id] = {}
         self._versions[judge.id][judge.version] = judge
+
+        # Store alignment model config in metadata if provided
+        if request.alignment_model_config:
+            self._update_judge_metadata(
+                judge.id,
+                judge.experiment_id,
+                {'alignment_model_config': request.alignment_model_config.model_dump()}
+            )
 
         # Invalidate experiment cache since we created a new judge
         self._judge_experiments_cache = None
@@ -133,6 +147,36 @@ class JudgeService(BaseService):
 
         logger.warning(f'Cannot delete judge {judge_id}: not found')
         return False
+
+    def update_alignment_model_config(
+        self, judge_id: str, config: Optional['AlignmentModelConfig']
+    ) -> Optional[JudgeResponse]:
+        """Update the alignment model configuration for a judge."""
+        judge = self._judges.get(judge_id)
+        if not judge:
+            # Try to recreate from metadata
+            judge = self._get_or_recreate_judge(judge_id)
+            if not judge:
+                logger.warning(f'Judge {judge_id} not found')
+                return None
+
+        # Update the alignment model config
+        judge.alignment_model_config = config
+
+        # Persist to metadata
+        if config:
+            self._update_judge_metadata(
+                judge_id, judge.experiment_id, {'alignment_model_config': config.model_dump()}
+            )
+        else:
+            # Remove alignment_model_config from metadata if config is None
+            self._update_judge_metadata(judge_id, judge.experiment_id, {'alignment_model_config': None})
+
+        logger.info(
+            f'Updated alignment model config for judge {judge_id}: '
+            f'{config.model_type if config else "default"}'
+        )
+        return self._judge_to_response(judge)
 
     # Version management
     def create_new_version(self, judge_id: str, aligned_instruction: str) -> JudgeResponse:
@@ -211,6 +255,11 @@ class JudgeService(BaseService):
                 # Set labeling_run_id if available in metadata
                 if 'labeling_run_id' in metadata and metadata['labeling_run_id']:
                     judge.labeling_run_id = metadata['labeling_run_id']
+
+                # Restore alignment_model_config if available in metadata
+                if 'alignment_model_config' in metadata and metadata['alignment_model_config']:
+                    from server.models import AlignmentModelConfig
+                    judge.alignment_model_config = AlignmentModelConfig(**metadata['alignment_model_config'])
 
                 # For InstructionJudge, we don't need to manually handle optimized instructions
                 # The MLflow judge handles this internally
