@@ -103,7 +103,9 @@ export function AlignmentModelSelector({ value, onChange, className, showLabel =
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Model used for aligning the judge</p>
+                  <p>
+                    The "teacher" model that optimizes the judge to align with human feedback. The judge itself uses the default Agent Evaluation model described <a href="https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/judges" target="_blank" rel="noopener noreferrer" className="underline text-blue-600">here</a>
+                  </p>
                 </TooltipContent>
               </Tooltip>
             )}
