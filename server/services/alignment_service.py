@@ -391,7 +391,12 @@ class AlignmentService(BaseService):
             alignment_model = f"databricks:/{endpoint_name}"
             logger.info(f'Using custom alignment model: {alignment_model}')
         else:
-            logger.info('Using default alignment model')
+            # Use configured default alignment model
+            if dspy_utils.USE_AGENT_EVAL_LM:
+                logger.info('Using default alignment model (AgentEvalLM via chat_completions)')
+            else:
+                alignment_model = f"databricks:/{dspy_utils.DEFAULT_ALIGNMENT_MODEL}"
+                logger.info(f'Using default alignment model: {alignment_model}')
 
         # Step 3: Run alignment on the judge using MLflow's native capability
         logger.info(f'Starting alignment for judge {judge_id}')

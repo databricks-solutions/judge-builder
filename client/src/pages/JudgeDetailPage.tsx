@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, AlertTriangle, Check, X } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ArrowLeft, ExternalLink, Plus, RefreshCw, Settings, Database, CheckCircle, ChevronDown, ChevronRight, Play, Tag, Copy, Share2, User, Bot, ArrowRight, AlertTriangle, Check, X, Info } from "lucide-react"
 import { LoadingDots } from "@/components/ui/loading-dots"
 import { useToast } from "@/contexts/ToastContext"
 
@@ -1045,6 +1046,7 @@ export default function JudgeDetailPage() {
                     <AlignmentModelSelector
                       value={alignmentModelConfig}
                       onChange={handleAlignmentModelConfigChange}
+                      showTooltip={true}
                     />
                   </div>
 
@@ -1163,7 +1165,21 @@ export default function JudgeDetailPage() {
 
                     {/* Inline Alignment Model Selector */}
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-muted-foreground">Alignment Model:</span>
+                      <div className="flex items-center gap-1">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" className="inline-flex items-center">
+                                <Info className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Model used for aligning the judge</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <span className="text-sm font-medium text-muted-foreground">Alignment Model:</span>
+                      </div>
                       <div className="w-64">
                         <AlignmentModelSelector
                           value={alignmentModelConfig}

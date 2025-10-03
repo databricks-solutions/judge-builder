@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ServingEndpointsService } from "@/fastapi_client"
 import type { AlignmentModelConfig } from "@/fastapi_client"
 
@@ -22,9 +23,10 @@ interface AlignmentModelSelectorProps {
   onChange: (config: AlignmentModelConfig | null) => void
   className?: string
   showLabel?: boolean
+  showTooltip?: boolean
 }
 
-export function AlignmentModelSelector({ value, onChange, className, showLabel = true }: AlignmentModelSelectorProps) {
+export function AlignmentModelSelector({ value, onChange, className, showLabel = true, showTooltip = false }: AlignmentModelSelectorProps) {
   const [endpoints, setEndpoints] = useState<ServingEndpoint[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -86,14 +88,29 @@ export function AlignmentModelSelector({ value, onChange, className, showLabel =
   }, [searchQuery, filteredEndpoints])
 
   return (
-    <div className={cn(showLabel ? "space-y-2" : "", className)}>
-      {showLabel && (
-        <Label className="text-sm font-medium">
-          Alignment Model <span className="text-muted-foreground font-normal">(optional)</span>
-        </Label>
-      )}
+    <TooltipProvider>
+      <div className={cn(showLabel ? "space-y-2" : "", className)}>
+        {showLabel && (
+          <div className="flex items-center gap-1">
+            <Label className="text-sm font-medium">
+              Alignment Model <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            {showTooltip && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="inline-flex items-center">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Model used for aligning the judge</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )}
 
-      <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -190,6 +207,7 @@ export function AlignmentModelSelector({ value, onChange, className, showLabel =
           </div>
         </PopoverContent>
       </Popover>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }
