@@ -56,6 +56,41 @@ def setup_logging() -> None:
 setup_logging()
 
 
+# Monkey patch MLflow's call_chat_completions to use judge-builder client name
+def _patch_mlflow_call_chat_completions():
+    """Patch mlflow.genai.judges.utils.call_chat_completions to use judge-builder version."""
+    try:
+        import mlflow.genai.judges.utils as mlflow_utils
+        from server.utils.constants import VERSION
+
+        def patched_call_chat_completions(user_prompt: str, system_prompt: str):
+            """Patched version that uses judge-builder client name."""
+            from databricks.rag_eval import context, env_vars
+
+            # Set our custom client name
+            env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(f"judge-builder-v{VERSION}")
+
+            @context.eval_context
+            def _call_chat_completions(user_prompt: str, system_prompt: str):
+                managed_rag_client = context.get_context().build_managed_rag_client()
+                return managed_rag_client.get_chat_completions_result(
+                    user_prompt=user_prompt,
+                    system_prompt=system_prompt,
+                )
+
+            return _call_chat_completions(user_prompt, system_prompt)
+
+        # Apply the patch
+        mlflow_utils.call_chat_completions = patched_call_chat_completions
+        logging.info(f"Patched mlflow.genai.judges.utils.call_chat_completions to use judge-builder-v{VERSION}")
+    except Exception as e:
+        logging.warning(f"Failed to patch call_chat_completions: {e}")
+
+
+# Apply patches on startup
+_patch_mlflow_call_chat_completions()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""

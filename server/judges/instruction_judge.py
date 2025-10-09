@@ -110,9 +110,9 @@ class InstructionJudge(BaseJudge):
         try:
             if alignment_model:
                 logger.info(f"Using custom alignment model: {alignment_model}")
-                from server.judges.custom_simba_optimizer import CustomSIMBAAlignmentOptimizer
+                from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
 
-                optimizer = CustomSIMBAAlignmentOptimizer(model=alignment_model)
+                optimizer = SIMBAAlignmentOptimizer(model=alignment_model)
                 self.scorer_func = self.scorer_func.align(traces=traces, optimizer=optimizer)
             else:
                 logger.info("Using default alignment model")

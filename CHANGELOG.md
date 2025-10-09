@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.3.1 (2025-10-09)
+
+### Improvements
+
+- **Client Attribution**: Added monkey patch to set custom client name (`judge-builder-v{VERSION}`) in chat completions for better tracking and analytics
+
 ## 0.3.0 (2025-10-03)
 
 ### Features
