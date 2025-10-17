@@ -565,7 +565,7 @@ wheels = [
 
 [[package]]
 name = "databricks-agents"
-version = "1.5.0"
+version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -585,12 +585,12 @@ dependencies = [
     { name = "whenever" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/f4/9ef99e9196d67696a37f8521e9cb39819caa4701c52da6d7798b3bb20cf5/databricks_agents-1.5.0-py3-none-any.whl", hash = "sha256:b30bc8645859cdf61350b164e7761b3320e637fff83fa88f095dd0f4906b4f71", size = 199785, upload-time = "2025-09-10T17:46:04.95Z" },
+    { url = "https://files.pythonhosted.org/packages/69/e9/0301192f3f934f2e989430324b282803c40166b258c52ac1fdf73759f1e9/databricks_agents-1.8.0-py3-none-any.whl", hash = "sha256:adc2743c431630d42f5e963bd2792880db2aef91030e9b71576e3900ce185ec3", size = 201422, upload-time = "2025-10-15T17:46:43.893Z" },
 ]
 
 [[package]]
 name = "databricks-app-template"
-version = "0.3.0"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "cachetools" },
@@ -635,7 +635,7 @@ dev = [
 requires-dist = [
     { name = "cachetools", specifier = ">=5.5.2" },
     { name = "click", specifier = ">=8.1.0" },
-    { name = "databricks-agents", specifier = "==1.5.0" },
+    { name = "databricks-agents", specifier = ">=1.8.0" },
     { name = "databricks-connect", marker = "extra == 'dev'", specifier = ">=16.1.6" },
     { name = "databricks-sdk", specifier = "==0.59.0" },
     { name = "debugpy", marker = "extra == 'dev'", specifier = ">=1.8.15" },

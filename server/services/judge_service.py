@@ -192,16 +192,13 @@ class JudgeService(BaseService):
             name=current_judge.name,
             user_instructions=current_judge.user_instructions,  # Keep original user instructions
             experiment_id=current_judge.experiment_id,
+            system_instructions=aligned_instruction,
         )
 
         # Override the auto-generated values
         new_judge.id = judge_id  # Keep same ID
         new_judge.version = new_version
         new_judge.labeling_run_id = current_judge.labeling_run_id  # Carry over labeling run ID
-
-        # Update the MLflow judge with aligned instructions
-        # Note: The actual alignment happens in the alignment service, this is just for version tracking
-        # The aligned instruction parameter should contain the optimized instructions
 
         # Update storage
         self._judges[judge_id] = new_judge

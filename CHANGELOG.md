@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.3.2 (2025-10-17)
+
+### Improvements
+
+- Changed default alignment model back to databricks-hosted endpoint
+- Removed alignment model selector from judge creation form
+- Upgraded databricks-agents to >=1.8.0
+
+### Bug Fixes
+
+- Fixed duplicate traces being added to labeling sessions
+
 ## 0.3.1 (2025-10-09)
 
 ### Improvements
