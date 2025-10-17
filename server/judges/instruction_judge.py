@@ -9,6 +9,7 @@ from mlflow.genai.utils.trace_utils import parse_inputs_to_str, parse_outputs_to
 
 from server.judges.base_judge import BaseJudge
 from server.utils.naming_utils import create_scorer_name, sanitize_judge_name
+from server.utils.dspy_utils import DEFAULT_ALIGNMENT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +111,16 @@ class InstructionJudge(BaseJudge):
         try:
             if alignment_model:
                 logger.info(f"Using custom alignment model: {alignment_model}")
-                from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
+                from server.judges.custom_simba_optimizer import CustomSIMBAAlignmentOptimizer
 
-                optimizer = SIMBAAlignmentOptimizer(model=alignment_model)
+                optimizer = CustomSIMBAAlignmentOptimizer(model=alignment_model)
                 self.scorer_func = self.scorer_func.align(traces=traces, optimizer=optimizer)
             else:
                 logger.info("Using default alignment model")
-                self.scorer_func = self.scorer_func.align(traces=traces)
+                from server.judges.custom_simba_optimizer import CustomSIMBAAlignmentOptimizer
+
+                optimizer = CustomSIMBAAlignmentOptimizer(model=DEFAULT_ALIGNMENT_MODEL)
+                self.scorer_func = self.scorer_func.align(traces=traces, optimizer=optimizer)
 
             logger.debug(f'Successfully aligned judge {self.name}')
             return True

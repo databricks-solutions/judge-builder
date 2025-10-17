@@ -63,7 +63,7 @@ def _patch_mlflow_call_chat_completions():
         import mlflow.genai.judges.utils as mlflow_utils
         from server.utils.constants import VERSION
 
-        def patched_call_chat_completions(user_prompt: str, system_prompt: str):
+        def patched_call_chat_completions(user_prompt: str, system_prompt: str, model: str | None = None, temperature: float | None = None):
             """Patched version that uses judge-builder client name."""
             from databricks.rag_eval import context, env_vars
 
@@ -73,10 +73,15 @@ def _patch_mlflow_call_chat_completions():
             @context.eval_context
             def _call_chat_completions(user_prompt: str, system_prompt: str):
                 managed_rag_client = context.get_context().build_managed_rag_client()
-                return managed_rag_client.get_chat_completions_result(
-                    user_prompt=user_prompt,
-                    system_prompt=system_prompt,
-                )
+                kwargs = {
+                    'user_prompt': user_prompt,
+                    'system_prompt': system_prompt,
+                }
+                if model:
+                    kwargs['model'] = model
+                if temperature:
+                    kwargs['temperature'] = temperature
+                return managed_rag_client.get_chat_completions_result(**kwargs)
 
             return _call_chat_completions(user_prompt, system_prompt)
 

@@ -1,12 +1,13 @@
 import dspy
+import logging
 from databricks.rag_eval import context, env_vars
 
 from server.utils.constants import VERSION
 
+logger = logging.getLogger(__name__)
+
 # Default alignment model configuration
-# To switch back to AgentEvalLM (chat_completions), set USE_AGENT_EVAL_LM = True
-USE_AGENT_EVAL_LM = False
-DEFAULT_ALIGNMENT_MODEL = "databricks-claude-sonnet-4"
+DEFAULT_ALIGNMENT_MODEL = "gpt-oss-120b"
 
 
 class AttrDict(dict):
@@ -36,8 +37,10 @@ def to_attrdict(obj):
 
 
 class AgentEvalLM(dspy.BaseLM):
-    def __init__(self):
+    def __init__(self, model: str, temperature: float = 1.0):
         super().__init__('databricks/databricks-llama-4-maverick')
+        self.model = model
+        self.temperature = temperature
         env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(f'judge-builder-v{VERSION}')
 
     def dump_state(self):
@@ -76,14 +79,14 @@ class AgentEvalLM(dspy.BaseLM):
 
         # Call the managed_rag_client
         response = managed_rag_client.get_chat_completions_result(
-            user_prompt=user_prompt, system_prompt=system_prompt
+            user_prompt=user_prompt, system_prompt=system_prompt, model=self.model, temperature=self.temperature
         )
 
         # Convert the response to the expected format
         if response.output is not None:
             result_dict = {
                 'object': 'chat.completion',
-                'model': 'agent-eval-lm',
+                'model': self.model,
                 'usage': {
                     'prompt_tokens': 0,
                     'completion_tokens': 0,
