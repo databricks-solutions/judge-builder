@@ -12,7 +12,6 @@ import { JudgeBuildersService, JudgesService, UsersService } from "@/fastapi_cli
 import type { JudgeCreateRequest, JudgeResponse, AlignmentModelConfig } from "@/fastapi_client"
 import { useToast } from "@/contexts/ToastContext"
 import { JudgeInstructionInput } from "@/components/JudgeInstructionInput"
-import { AlignmentModelSelector } from "@/components/AlignmentModelSelector"
 import { validateTemplateVariables } from "@/lib/templateValidation"
 import databricksLogoUrl from "@/assets/databricks_logo.svg"
 
@@ -30,7 +29,6 @@ export default function WelcomePage() {
   const [judgeInstruction, setJudgeInstruction] = useState("")
   const [experimentId, setExperimentId] = useState("")
   const [smeEmails, setSmeEmails] = useState("")
-  const [alignmentModelConfig, setAlignmentModelConfig] = useState<AlignmentModelConfig | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [databricksHost, setDatabricksHost] = useState<string | null>(null)
   const [servicePrincipalId, setServicePrincipalId] = useState<string | null>(null)
@@ -248,7 +246,7 @@ export default function WelcomePage() {
         instruction: finalInstruction,
         experiment_id: experimentId,
         sme_emails: smeEmails.split(',').map(email => email.trim()).filter(Boolean),
-        alignment_model_config: alignmentModelConfig
+        alignment_model_config: null
       }
       
       
@@ -264,7 +262,6 @@ export default function WelcomePage() {
       setJudgeInstruction("")
       setExperimentId("")
       setSmeEmails("")
-      setAlignmentModelConfig(null)
       
       // Navigate to the newly created judge
       navigate(`/judge/${response.id}`)
@@ -495,12 +492,6 @@ export default function WelcomePage() {
                 placeholder="user1@example.com, user2@example.com"
               />
             </div>
-
-            <AlignmentModelSelector
-              value={alignmentModelConfig}
-              onChange={setAlignmentModelConfig}
-              showTooltip={true}
-            />
 
             <Button 
               onClick={handleCreateJudge}
