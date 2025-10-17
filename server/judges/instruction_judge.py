@@ -21,10 +21,13 @@ class InstructionJudge(BaseJudge):
         self,
         name: str,
         user_instructions: str,
+        system_instructions: str | None = None,
         experiment_id: Optional[str] = None,
     ):
         """Initialize InstructionJudge with MLflow make_judge API."""
         super().__init__(name, user_instructions, experiment_id)
+
+        self.system_instructions = system_instructions if system_instructions else user_instructions
 
         # Create MLflow judge using make_judge API - this becomes our scorer_func
         logger.info(f"Creating MLflow judge with:")
@@ -109,18 +112,11 @@ class InstructionJudge(BaseJudge):
         )
 
         try:
-            if alignment_model:
-                logger.info(f"Using custom alignment model: {alignment_model}")
-                from server.judges.custom_simba_optimizer import CustomSIMBAAlignmentOptimizer
+            from server.judges.custom_simba_optimizer import CustomSIMBAAlignmentOptimizer
 
-                optimizer = CustomSIMBAAlignmentOptimizer(model=alignment_model)
-                self.scorer_func = self.scorer_func.align(traces=traces, optimizer=optimizer)
-            else:
-                logger.info("Using default alignment model")
-                from server.judges.custom_simba_optimizer import CustomSIMBAAlignmentOptimizer
-
-                optimizer = CustomSIMBAAlignmentOptimizer(model=DEFAULT_ALIGNMENT_MODEL)
-                self.scorer_func = self.scorer_func.align(traces=traces, optimizer=optimizer)
+            model = alignment_model if alignment_model else DEFAULT_ALIGNMENT_MODEL
+            optimizer = CustomSIMBAAlignmentOptimizer(model=model)
+            self.scorer_func = self.scorer_func.align(traces=traces, optimizer=optimizer)
 
             logger.debug(f'Successfully aligned judge {self.name}')
             return True

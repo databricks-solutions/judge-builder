@@ -151,9 +151,35 @@ class LabelingService(BaseService):
         if not session:
             raise ValueError('No labeling session found for this judge')
 
-        # Get real traces from MLflow
+        # Get existing trace IDs in the session
+        existing_trace_ids = set()
+        try:
+            from databricks.rag_eval.clients.managedevals import managed_evals_client
+
+            client = managed_evals_client.ManagedEvalsClient()
+            items = client.list_items_in_labeling_session(session)
+
+            # Extract trace IDs from items (trace_id is nested in item.source.trace_id)
+            for item in items:
+                if hasattr(item, 'source') and item.source and hasattr(item.source, 'trace_id'):
+                    trace_id = item.source.trace_id
+                    if trace_id:
+                        existing_trace_ids.add(trace_id)
+
+            logger.info(f'Found {len(existing_trace_ids)} existing traces in session')
+        except Exception as e:
+            logger.warning(f'Failed to get existing traces from session: {e}')
+            # Continue without filtering if we can't get existing traces
+
+        # Get real traces from MLflow, filtering out duplicates
         target_traces = []
+        skipped_count = 0
         for trace_id in request.trace_ids:
+            # Skip if trace already exists in session
+            if trace_id in existing_trace_ids:
+                skipped_count += 1
+                continue
+
             try:
                 # Fetch the actual trace from MLflow
                 trace = mlflow.get_trace(trace_id)
@@ -163,7 +189,12 @@ class LabelingService(BaseService):
                 logger.warning(f'Failed to fetch trace {trace_id}: {e}')
                 continue
 
+        if skipped_count > 0:
+            logger.info(f'Skipped {skipped_count} duplicate trace(s)')
+
         if not target_traces:
+            if skipped_count > 0:
+                return []
             raise ValueError('No valid traces found')
 
         # Add traces to the session
@@ -172,7 +203,7 @@ class LabelingService(BaseService):
         mlflow_env_vars.MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.set(False)
 
         session.add_traces(target_traces)
-        logger.info(f'Added {len(target_traces)} traces to session {session.mlflow_run_id}')
+        logger.info(f'Added {len(target_traces)} new trace(s) to session {session.mlflow_run_id}')
 
         # Convert traces to TraceExample objects using the from_traces class method
         return TraceExample.from_traces(target_traces)
