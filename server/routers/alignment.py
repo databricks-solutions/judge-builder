@@ -27,7 +27,7 @@ def run_alignment_background(judge_id: str):
     """Background task to run alignment."""
     try:
         logger.info(f'Background alignment started for judge {judge_id}')
-        alignment_status[judge_id] = AlignmentTaskStatus.running()
+        # Status is already set to 'running' by the endpoint handler
 
         result = alignment_service.run_alignment(judge_id)
         alignment_status[judge_id] = AlignmentTaskStatus.completed(result)
@@ -65,6 +65,10 @@ async def run_alignment(judge_id: str, background_tasks: BackgroundTasks):
     # Check if alignment is already running for this judge
     if judge_id in alignment_status and alignment_status[judge_id].status == 'running':
         raise HTTPException(status_code=409, detail='Alignment is already running for this judge')
+
+    # Set initial running status so polling works immediately
+    alignment_status[judge_id] = AlignmentTaskStatus.running()
+    logger.info(f'Alignment task queued for judge {judge_id}')
 
     # Start alignment in background
     background_tasks.add_task(run_alignment_background, judge_id)

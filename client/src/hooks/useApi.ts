@@ -142,6 +142,9 @@ export function useAlignment() {
       const response = await AlignmentService.runAlignmentApiAlignmentJudgeIdAlignPost(judgeId)
       console.log('[Alignment] Started background alignment:', response)
 
+      // Wait a bit before first poll to let background task start
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       // Poll for completion using exponential backoff
       const pollForCompletion = async (attempt: number = 0, maxRetries: number = 20): Promise<any> => {
         if (attempt >= maxRetries) {
