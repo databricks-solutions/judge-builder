@@ -4,7 +4,8 @@ A comprehensive platform for building and optimizing LLM judges.
 
 Judge Builder enables you to align custom LLM judges or the built-in Databricks LLM judges with human preferences using state-of-the-art optimization techniques. The platform provides seamless integration with MLflow experiments and Databricks workspaces, supporting the full lifecycle from judge creation to production evaluation workflows.
 
-![judge-builder-demo](https://github.com/user-attachments/assets/854f3a5f-1094-48a1-985f-c1c8ce1180ac)
+![judge-builder-v0 3 3](https://github.com/user-attachments/assets/9a4c0443-5368-4838-846a-1ea934d4edc3)
+
 
 ## Installation
 
