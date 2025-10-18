@@ -1,5 +1,5 @@
 # Version of Judge builder
-VERSION = '0.3.2'
+VERSION = '0.3.3'
 
 # Tag for aligned samples count
 ALIGNED_SAMPLES_COUNT = 'aligned_samples_count'

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.3.3 (2025-10-18)
+
+### Bug Fixes
+
+- Fixed alignment timeout issues in deployed environments by moving alignment to background tasks with polling
+
 ## 0.3.2 (2025-10-17)
 
 ### Improvements
