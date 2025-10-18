@@ -8,7 +8,7 @@ export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { AlignmentModelConfig } from './models/AlignmentModelConfig';
-export type { AlignmentResponse } from './models/AlignmentResponse';
+export type { AlignmentStartResponse } from './models/AlignmentStartResponse';
 export type { AssessmentError } from './models/AssessmentError';
 export type { AssessmentSource } from './models/AssessmentSource';
 export type { CreateLabelingSessionRequest } from './models/CreateLabelingSessionRequest';

@@ -13,7 +13,6 @@ requests>=2.32.4
 rich>=14.0.0
 click>=8.1.0
 mlflow[databricks]==3.4.0
-databricks-agents==1.5.0
+databricks-agents>=1.8.0
 dspy>=2.6.27
-databricks-dspy>=0.1.0
 cachetools>=5.5.2
