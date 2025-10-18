@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AlignmentModelConfig } from '../models/AlignmentModelConfig';
-import type { AlignmentResponse } from '../models/AlignmentResponse';
+import type { AlignmentStartResponse } from '../models/AlignmentStartResponse';
 import type { CreateLabelingSessionRequest } from '../models/CreateLabelingSessionRequest';
 import type { CreateLabelingSessionResponse } from '../models/CreateLabelingSessionResponse';
 import type { EvaluationResult } from '../models/EvaluationResult';
@@ -332,17 +332,38 @@ export class ApiService {
     }
     /**
      * Run Alignment
-     * Run alignment for a judge.
+     * Run alignment for a judge in the background.
      * @param judgeId
-     * @returns AlignmentResponse Successful Response
+     * @returns AlignmentStartResponse Successful Response
      * @throws ApiError
      */
     public static runAlignmentApiAlignmentJudgeIdAlignPost(
         judgeId: string,
-    ): CancelablePromise<AlignmentResponse> {
+    ): CancelablePromise<AlignmentStartResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/alignment/{judge_id}/align',
+            path: {
+                'judge_id': judgeId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Alignment Status
+     * Get the status of a background alignment task.
+     * @param judgeId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static getAlignmentStatusApiAlignmentJudgeIdAlignStatusGet(
+        judgeId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/alignment/{judge_id}/align-status',
             path: {
                 'judge_id': judgeId,
             },

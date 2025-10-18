@@ -137,11 +137,54 @@ export function useAlignment() {
       setLoading(true)
       setError(null)
       setNeedsRefresh(false)
+
+      // Start alignment in background
       const response = await AlignmentService.runAlignmentApiAlignmentJudgeIdAlignPost(judgeId)
-      return response
+      console.log('[Alignment] Started background alignment:', response)
+
+      // Wait a bit before first poll to let background task start
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Poll for completion using exponential backoff
+      const pollForCompletion = async (attempt: number = 0, maxRetries: number = 20): Promise<any> => {
+        if (attempt >= maxRetries) {
+          throw new Error('Alignment polling timed out after maximum attempts')
+        }
+
+        try {
+          // Check alignment status
+          const statusResponse = await AlignmentService.getAlignmentStatusApiAlignmentJudgeIdAlignStatusGet(judgeId)
+          console.log(`[Alignment Poll ${attempt + 1}] Status:`, statusResponse)
+
+          if (statusResponse.status === 'completed') {
+            return statusResponse.result
+          } else if (statusResponse.status === 'running') {
+            // Still running, wait and retry
+            // Exponential backoff with cap: 2s, 4s, 8s, 16s, 30s, 30s, ...
+            const delay = Math.min(Math.pow(2, attempt) * 2000, 30000)
+            console.log(`[Alignment Poll ${attempt + 1}] Still running, waiting ${delay}ms before next poll`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+            return pollForCompletion(attempt + 1, maxRetries)
+          } else {
+            // Should not happen, but handle gracefully
+            throw new Error(`Unexpected status: ${statusResponse.status}`)
+          }
+        } catch (pollErr) {
+          // If we get an error from the status endpoint, it means alignment failed
+          // The status endpoint will throw an HTTPException with the appropriate error
+          console.error('[Alignment Poll] Error:', pollErr)
+          throw pollErr
+        }
+      }
+
+      // Wait for alignment to complete
+      const result = await pollForCompletion()
+      console.log('[Alignment] Completed successfully:', result)
+      return result
+
     } catch (err) {
       console.error('Error running alignment:', err)
-      
+
       // Check if this is an insufficient examples error
       const errorMessage = err instanceof Error ? err.message : String(err)
       const errorString = JSON.stringify(err)
@@ -151,69 +194,33 @@ export function useAlignment() {
         errorString.includes('Insufficient labeled examples') ||
         errorString.includes('need at least')
       )
-      
+
       if (isInsufficientExamples) {
         setError('insufficient_examples')
-        throw err // Re-throw so the UI can handle it with toast
-      }
-      
-      // Check if this is a 422 optimization failure error
-      const isOptimizationFailure = err instanceof Error && (
-        err.message.includes('422') || 
-        err.message.includes('Judge optimization failed')
-      )
-      
-      if (isOptimizationFailure) {
-        setError('Judge optimization failed. Please check the app logs for details.')
-        throw err // Re-throw so the UI can handle it with toast
-      }
-      
-      // Check if this is a 504 timeout error
-      const isTimeout = err instanceof Error && (
-        err.message.includes('504') || 
-        err.message.includes('Gateway Timeout') ||
-        err.message.includes('timeout')
-      )
-      
-      if (isTimeout) {
-        
-        // Poll for alignment completion using exponential backoff
-        const pollForCompletion = async (attempt: number = 0, maxRetries: number = 7): Promise<any> => {
-          if (attempt >= maxRetries) {
-            throw new Error('Alignment timeout: maximum polling attempts reached')
-          }
-          
-          try {
-            // Try to get alignment comparison data - if this succeeds, alignment completed
-            const comparisonResult = await AlignmentService.getAlignmentComparisonApiAlignmentJudgeIdAlignmentComparisonGet(judgeId)
-            return comparisonResult
-          } catch (pollErr) {
-            
-            if (attempt < maxRetries - 1) {
-              // Exponential backoff: 2^attempt * 2000ms (2s, 4s, 8s, 16s, 32s)
-              const delay = Math.pow(2, attempt) * 2000
-              await new Promise(resolve => setTimeout(resolve, delay))
-              return pollForCompletion(attempt + 1, maxRetries)
-            } else {
-              throw new Error('Alignment timeout: polling unsuccessful after maximum attempts')
-            }
-          }
-        }
-        
-        try {
-          await pollForCompletion()
-          // If polling succeeds, return a success response
-          return { success: true, message: 'Alignment completed successfully (detected via polling)' }
-        } catch (pollError) {
-          console.error('[Alignment Polling] Failed to detect alignment completion:', pollError)
-          setError('Alignment may have completed but polling failed')
-          setNeedsRefresh(true)
-          throw pollError
-        }
-      } else {
-        setError(err instanceof Error ? err.message : 'Failed to run alignment')
         throw err
       }
+
+      // Check if this is a 422 optimization failure error
+      const isOptimizationFailure = err instanceof Error && (
+        err.message.includes('422') ||
+        err.message.includes('Judge optimization failed')
+      )
+
+      if (isOptimizationFailure) {
+        setError('Judge optimization failed. Please check the app logs for details.')
+        throw err
+      }
+
+      // Check if this is a 409 already running error
+      const isAlreadyRunning = err instanceof Error && err.message.includes('409')
+
+      if (isAlreadyRunning) {
+        setError('Alignment is already running for this judge')
+        throw err
+      }
+
+      setError(err instanceof Error ? err.message : 'Failed to run alignment')
+      throw err
     } finally {
       setLoading(false)
     }
