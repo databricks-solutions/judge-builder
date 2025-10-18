@@ -82,6 +82,9 @@ class InstructionJudge(BaseJudge):
 
     def register_scorer(self) -> Any:
         """Register the judge as an MLflow scorer."""
+        import re
+        from databricks.sdk import WorkspaceClient
+
         try:
             scorer_name = create_scorer_name(self.name, self.version)
 
@@ -93,8 +96,30 @@ class InstructionJudge(BaseJudge):
                 return self.scorer_func.register(name=scorer_name)
 
         except Exception as e:
+            error_message = str(e)
+
+            # Check if this is a permission error
+            if 'PERMISSION_DENIED' in error_message and 'job' in error_message:
+                # Parse job ID and user email from error message
+                job_match = re.search(r'on job (\d+)', error_message)
+                user_match = re.search(r'User ([\w.@-]+)', error_message)
+
+                if job_match and user_match:
+                    job_id = job_match.group(1)
+                    user_email = user_match.group(1)
+
+                    # Create a user-friendly error message
+                    friendly_message = (
+                        f'Failed to register the new scorer version. '
+                        f'The user {user_email} does not have manage permissions on job {job_id}. '
+                        f'Please grant permissions to the user and try again.'
+                    )
+                    logger.error(friendly_message)
+                    raise RuntimeError(friendly_message) from e
+
+            # For other errors, log and re-raise with original message
             logger.warning(f'Failed to register InstructionJudge scorer: {e}')
-            return None
+            raise
 
     def optimize(self, traces: List[mlflow.entities.Trace], alignment_model: Optional[str] = None) -> bool:
         """Optimize the judge using labeled traces with optional custom alignment model.

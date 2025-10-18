@@ -137,6 +137,39 @@ class AlignmentResponse(BaseModel):
     improvement_metrics: Optional[dict] = Field(None, description='Performance improvement metrics')
 
 
+class AlignmentStartResponse(BaseModel):
+    """Response model for starting alignment in background."""
+
+    judge_id: str = Field(..., description='Judge identifier')
+    success: bool = Field(..., description='Whether alignment started successfully')
+    message: str = Field(..., description='Status message')
+
+
+class AlignmentTaskStatus(BaseModel):
+    """Status of a background alignment task."""
+
+    status: str = Field(..., description='Task status: running, completed, or failed')
+    result: Optional[AlignmentResponse] = Field(None, description='Alignment result if completed')
+    error_type: Optional[str] = Field(None, description='Error type if failed: not_found, optimization_failure, or unknown')
+    error_message: Optional[str] = Field(None, description='Error message if failed')
+    error_traceback: Optional[str] = Field(None, description='Error traceback if failed')
+
+    @classmethod
+    def running(cls) -> 'AlignmentTaskStatus':
+        """Create a running status."""
+        return cls(status='running', result=None, error_type=None, error_message=None, error_traceback=None)
+
+    @classmethod
+    def completed(cls, result: AlignmentResponse) -> 'AlignmentTaskStatus':
+        """Create a completed status with result."""
+        return cls(status='completed', result=result, error_type=None, error_message=None, error_traceback=None)
+
+    @classmethod
+    def failed(cls, error_type: str, error_message: str, error_traceback: Optional[str] = None) -> 'AlignmentTaskStatus':
+        """Create a failed status with error details."""
+        return cls(status='failed', result=None, error_type=error_type, error_message=error_message, error_traceback=error_traceback)
+
+
 class UserInfo(BaseModel):
     """User information model."""
 
