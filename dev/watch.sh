@@ -7,11 +7,12 @@ LOG_FILE="/tmp/databricks-app-watch.log"
 PID_FILE="/tmp/databricks-app-watch.pid"
 
 # Parse command line arguments
-PROD_MODE=false
+DEPLOYMENT_MODE="dev"
 if [[ "$1" == "--prod" ]]; then
-  PROD_MODE=true
+  DEPLOYMENT_MODE="prod"
   echo "🚀 Production mode enabled"
 fi
+export DEPLOYMENT_MODE
 
 # Kill any existing processes from previous watch.sh runs
 echo "🧹 Cleaning up any existing watch.sh processes..."
@@ -84,16 +85,16 @@ fi
 echo "🔧 Generating TypeScript client..."
 uv run python -m scripts.make_fastapi_client || echo "⚠️ Could not generate client (server may not be running yet)"
 
-if [ "$PROD_MODE" = true ]; then
+if [ "$DEPLOYMENT_MODE" = "prod" ]; then
   echo "Building frontend for production..."
   pushd client && npm run build && popd
   echo "✅ Frontend built successfully"
-  
+
   # In production mode, only start backend (frontend served by FastAPI)
   uv run uvicorn server.app:app --reload --reload-dir server --host 0.0.0.0 --port 8000 &
   BACKEND_PID=$!
   echo "Backend PID: $BACKEND_PID"
-  
+
   echo "Production mode: Frontend will be served by FastAPI at http://localhost:8000"
 else
   # Development mode: start both frontend and backend
@@ -128,7 +129,7 @@ echo "✅ Development servers started!"
 echo ""
 echo "📊 Process Information:"
 echo "  Watch script PID: $$"
-if [ "$PROD_MODE" = true ]; then
+if [ "$DEPLOYMENT_MODE" = "prod" ]; then
   echo "  Backend PID: $BACKEND_PID"
   echo "  Watcher PID: $WATCHER_PID"
   echo ""

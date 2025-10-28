@@ -117,13 +117,15 @@ app = FastAPI(
     servers=[{'url': 'http://localhost:8001', 'description': 'Development server'}],
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
-    allow_credentials=True,
-    allow_methods=['*'],
-    allow_headers=['*'],
-)
+# Only enable CORS in development mode
+if os.getenv('DEPLOYMENT_MODE', 'prod') == 'dev':
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=['http://localhost:3000', 'http://127.0.0.1:3000'],
+        allow_credentials=True,
+        allow_methods=['*'],
+        allow_headers=['*'],
+    )
 
 app.include_router(router, prefix='/api', tags=['api'])
 
@@ -148,9 +150,17 @@ if os.path.exists('client/build'):
             return None
 
         # Check if it's a request for a specific static file
-        static_file_path = Path(f'client/build/{full_path}')
-        if static_file_path.exists() and static_file_path.is_file():
-            return FileResponse(static_file_path)
+        static_file_path = Path(f'client/build/{full_path}').resolve()
+        build_dir = Path('client/build').resolve()
+
+        # Prevent path traversal by ensuring the resolved path is within build_dir
+        try:
+            static_file_path.relative_to(build_dir)
+            if static_file_path.exists() and static_file_path.is_file():
+                return FileResponse(static_file_path)
+        except ValueError:
+            # Path is outside build_dir, serve index.html instead
+            pass
 
         # For all other routes (client-side routes), serve index.html
         return FileResponse('client/build/index.html')
