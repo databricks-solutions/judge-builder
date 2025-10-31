@@ -45,9 +45,9 @@ if [ -f ".env" ]; then
   echo "Loading .env"
   export $(grep -v '^#' .env | xargs)
 fi
-if [ -f ".env.local" ]; then
-  echo "Loading .env.local"
-  export $(grep -v '^#' .env.local | xargs)
+if [ -f "src/.env.local" ]; then
+  echo "Loading src/.env.local"
+  export $(grep -v '^#' src/.env.local | xargs)
   # Explicitly export Databricks variables for CLI
   export DATABRICKS_HOST
   export DATABRICKS_TOKEN
@@ -83,15 +83,15 @@ fi
 
 # Generate TypeScript client
 echo "🔧 Generating TypeScript client..."
-uv run python -m scripts.make_fastapi_client || echo "⚠️ Could not generate client (server may not be running yet)"
+uv run python -m src.scripts.make_fastapi_client || echo "⚠️ Could not generate client (server may not be running yet)"
 
 if [ "$DEPLOYMENT_MODE" = "prod" ]; then
   echo "Building frontend for production..."
-  pushd client && npm run build && popd
+  pushd src/client && npm run build && popd
   echo "✅ Frontend built successfully"
 
   # In production mode, only start backend (frontend served by FastAPI)
-  uv run uvicorn server.app:app --reload --reload-dir server --host 0.0.0.0 --port 8000 &
+  uv run uvicorn src.server.app:app --reload --reload-dir src/server --host 0.0.0.0 --port 8000 &
   BACKEND_PID=$!
   echo "Backend PID: $BACKEND_PID"
 
@@ -99,12 +99,12 @@ if [ "$DEPLOYMENT_MODE" = "prod" ]; then
 else
   # Development mode: start both frontend and backend
   echo "🌐 Starting frontend development server..."
-  (cd client && BROWSER=none npm run dev) &
+  (cd src/client && BROWSER=none npm run dev) &
   FRONTEND_PID=$!
   echo "Frontend PID: $FRONTEND_PID"
 
   echo "🖥️ Starting backend development server..."
-  uv run uvicorn server.app:app --reload --reload-dir server --host 0.0.0.0 --port 8000 &
+  uv run uvicorn src.server.app:app --reload --reload-dir src/server --host 0.0.0.0 --port 8000 &
   BACKEND_PID=$!
   echo "Backend PID: $BACKEND_PID"
 fi
@@ -116,8 +116,8 @@ uv run watchmedo auto-restart \
   --debounce-interval=1 \
   --no-restart-on-command-exit \
   --recursive \
-  --directory=server \
-  uv -- run python -m scripts.make_fastapi_client &
+  --directory=src/server \
+  uv -- run python -m src.scripts.make_fastapi_client &
 WATCHER_PID=$!
 echo "Watcher PID: $WATCHER_PID"
 

@@ -26,22 +26,26 @@ if ! command -v databricks &> /dev/null; then
 fi
 
 # Create virtual environment with correct Python version
-echo "🐍 Creating Python virtual environment..."
-uv venv --python 3.11
+if [ -d ".venv" ]; then
+    echo "✅ Virtual environment already exists at .venv"
+else
+    echo "🐍 Creating Python virtual environment..."
+    uv venv --python 3.11
+fi
 
 # Generate requirements files
 echo "📦 Generating requirements files..."
-uv run python scripts/generate_semver_requirements.py
+uv run python src/scripts/generate_semver_requirements.py
 
 # Install Python dependencies (production only)
 echo "📦 Installing Python dependencies..."
-uv pip install -r requirements.txt
+uv pip install -r src/requirements.txt
 
-# Install frontend dependencies  
+# Install frontend dependencies
 echo "📦 Installing frontend dependencies..."
-cd client
+cd src/client
 npm install
-cd ..
+cd ../..
 
 # Environment setup
 echo ""
@@ -50,9 +54,9 @@ echo "============================"
 
 UPDATE_CONFIG=false
 
-if [ -f ".env.local" ]; then
-    echo "✅ Found existing .env.local"
-    source .env.local
+if [ -f "src/.env.local" ]; then
+    echo "✅ Found existing src/.env.local"
+    source src/.env.local
     echo ""
     echo "Current configuration:"
     echo "  Profile: ${DATABRICKS_CONFIG_PROFILE:-default}"
@@ -63,8 +67,8 @@ if [ -f ".env.local" ]; then
         UPDATE_CONFIG=true
     fi
 else
-    echo "Creating .env.local file..."
-    echo "# Databricks Configuration" > .env.local
+    echo "Creating src/.env.local file..."
+    echo "# Databricks Configuration" > src/.env.local
     UPDATE_CONFIG=true
 fi
 
@@ -101,10 +105,10 @@ if [ "$UPDATE_CONFIG" = true ]; then
     
     if [ "$profile" != "$DATABRICKS_CONFIG_PROFILE" ]; then
         # Remove existing line and add new one
-        if [ -f .env.local ]; then
-            sed -i.bak '/^DATABRICKS_CONFIG_PROFILE=/d' .env.local && rm .env.local.bak
+        if [ -f src/.env.local ]; then
+            sed -i.bak '/^DATABRICKS_CONFIG_PROFILE=/d' src/.env.local && rm src/.env.local.bak
         fi
-        echo "DATABRICKS_CONFIG_PROFILE=$profile" >> .env.local
+        echo "DATABRICKS_CONFIG_PROFILE=$profile" >> src/.env.local
         export DATABRICKS_CONFIG_PROFILE="$profile"
     fi
 
@@ -124,10 +128,10 @@ if [ "$UPDATE_CONFIG" = true ]; then
     
     if [ "$app_name" != "$DATABRICKS_APP_NAME" ]; then
         # Remove existing line and add new one
-        if [ -f .env.local ]; then
-            sed -i.bak '/^DATABRICKS_APP_NAME=/d' .env.local && rm .env.local.bak
+        if [ -f src/.env.local ]; then
+            sed -i.bak '/^DATABRICKS_APP_NAME=/d' src/.env.local && rm src/.env.local.bak
         fi
-        echo "DATABRICKS_APP_NAME=$app_name" >> .env.local
+        echo "DATABRICKS_APP_NAME=$app_name" >> src/.env.local
         export DATABRICKS_APP_NAME="$app_name"
     fi
     
@@ -136,13 +140,13 @@ fi
 # Test connection
 echo ""
 echo "🔍 Testing connection..."
-if uv run python -c "
+if .venv/bin/python -c "
 import os
 from dotenv import load_dotenv
 from databricks.sdk import WorkspaceClient
 
-# Load environment variables from .env.local
-load_dotenv('.env.local')
+# Load environment variables from src/.env.local
+load_dotenv('src/.env.local')
 
 try:
     profile = os.environ.get('DATABRICKS_CONFIG_PROFILE', 'DEFAULT')
