@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.3.4 (2025-10-28)
+
+### Security Fixes
+
+- Fixed path traversal vulnerability in static file serving that could allow access to files outside the build directory
+- Restricted CORS middleware to development mode only (controlled by `DEPLOYMENT_MODE` environment variable)
+
 ## 0.3.3 (2025-10-18)
 
 ### Bug Fixes
