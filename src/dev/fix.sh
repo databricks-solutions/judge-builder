@@ -16,13 +16,13 @@ uv run ty check
 
 # Format TypeScript/JavaScript files with prettier
 echo "Formatting TypeScript/JavaScript files..."
-cd client
+cd src/client
 npm run format 2>/dev/null || {
     echo "No npm format script found, using prettier directly..."
     npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css}" 2>/dev/null || {
         echo "Prettier not available, skipping TypeScript formatting"
     }
 }
-cd ..
+cd ../..
 
 echo "✅ Code formatting complete!"

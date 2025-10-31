@@ -54,9 +54,9 @@ def write_requirements_file(filename, deps, description):
 def generate_semver_requirements():
     """Extract dependencies from pyproject.toml and write requirements files."""
     # Read pyproject.toml
-    pyproject_path = Path('pyproject.toml')
+    pyproject_path = Path('src/pyproject.toml')
     if not pyproject_path.exists():
-        print('Error: pyproject.toml not found', file=sys.stderr)
+        print('Error: src/pyproject.toml not found', file=sys.stderr)
         sys.exit(1)
 
     # Try to parse with tomllib, fallback to manual parsing
@@ -99,12 +99,12 @@ def generate_semver_requirements():
 
     # Write requirements.txt (production only)
     write_requirements_file(
-        'requirements.txt', prod_deps, 'Production dependencies for Databricks Apps deployment'
+        'src/requirements.txt', prod_deps, 'Production dependencies for Databricks Apps deployment'
     )
 
     # Write dev-requirements.txt (dev dependencies)
     if dev_deps:
-        write_requirements_file('dev-requirements.txt', dev_deps, 'Development dependencies')
+        write_requirements_file('src/dev-requirements.txt', dev_deps, 'Development dependencies')
 
     print(f'Generated requirements.txt with {len(prod_deps)} production dependencies')
     if dev_deps:
